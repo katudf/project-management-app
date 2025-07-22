@@ -6,8 +6,9 @@ import FullCalendar from '@fullcalendar/react';
 import resourceTimelinePlugin from '@fullcalendar/resource-timeline';
 import interactionPlugin from '@fullcalendar/interaction';
 import dayGridPlugin from '@fullcalendar/daygrid';
-import type { EventDropArg, EventContentArg } from '@fullcalendar/core'; // EventResizeDoneArgを削除
+import type { EventDropArg, EventResizeDoneArg, EventContentArg } from '@fullcalendar/core';
 import jaLocale from '@fullcalendar/core/locales/ja';
+import * as holiday_jp from '@holiday-jp/holiday_jp';
 
 // --- 型定義 ---
 interface Resource {
@@ -25,8 +26,28 @@ interface CalendarEvent {
   start: string;
   end?: string;
   className?: string;
-  display?: 'background' | 'auto';
 }
+
+// --- ヘルパー関数 ---
+const getDayClasses = (date: Date): string[] => {
+  const classNames = [];
+  if (holiday_jp.isHoliday(date)) classNames.push('holiday');
+  else {
+    const day = date.getDay();
+    if (day === 0) classNames.push('sunday');
+    if (day === 6) classNames.push('saturday');
+  }
+  return classNames;
+};
+
+const formatDate = (date: string) => {
+    const d = new Date(date);
+    return `${d.getMonth() + 1}/${d.getDate()}`;
+}
+const getDuration = (start: string, end: string) => {
+    const diffTime = new Date(end).getTime() - new Date(start).getTime();
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+};
 
 export default function OverallSchedulePage() {
   const [resources, setResources] = useState<Resource[]>([]);
@@ -55,13 +76,13 @@ export default function OverallSchedulePage() {
           supabase.from('ServiceMaster').select('id, name')
         ]);
 
-        if (projectsError || tasksError || workersError || assignmentsError || servicesError) {
+        if (projectsError || tasksError || workersError || servicesError || assignmentsError) {
           throw new Error("データ取得に失敗しました。");
         }
 
         const serviceMap = new Map(servicesData.map(s => [s.id, s.name]));
+        const projectMap = new Map(projectsData.map(p => [p.id, p.name]));
 
-        // 1. リソース（縦軸）の作成（階層構造）
         const projectResources: Resource[] = projectsData.map(p => ({
           id: `proj_${p.id}`,
           title: p.name || '名称未設定',
@@ -86,39 +107,53 @@ export default function OverallSchedulePage() {
         
         setResources([...projectResources, ...taskResources, ...workerResources]);
 
-        // 2. イベント（タイムライン上のバーや予定）の作成
-        const projectBgEvents: CalendarEvent[] = projectsData.map(p => ({
-            id: `proj_bg_${p.id}`,
-            resourceId: `proj_${p.id}`,
-            title: '',
-            start: p.startDate,
-            end: p.endDate,
-            display: 'background',
-            className: 'project-bg-event'
-        }));
+        const projectMainEvents: CalendarEvent[] = projectsData.map(p => {
+            const endDate = new Date(p.endDate);
+            endDate.setDate(endDate.getDate() + 1);
+            const duration = getDuration(p.startDate, endDate.toISOString().split('T')[0]);
+            return {
+                id: `proj_main_${p.id}`,
+                resourceId: `proj_${p.id}`,
+                title: `${p.name} (${formatDate(p.startDate)}～${formatDate(p.endDate)} ${duration}日間)`,
+                start: p.startDate,
+                end: endDate.toISOString().split('T')[0],
+                className: 'project-main-event',
+            };
+        });
         
-        const taskEvents: CalendarEvent[] = tasksData.map(t => ({
-            id: `task_bar_${t.id}`,
-            resourceId: `task_${t.id}`,
-            title: serviceMap.get(t.serviceMasterId) || '',
-            start: t.startDate,
-            end: t.endDate,
-            className: 'task-event',
-        }));
+        const taskEvents: CalendarEvent[] = tasksData.map(t => {
+            const endDate = new Date(t.endDate);
+            endDate.setDate(endDate.getDate() + 1);
+            return {
+                id: `task_bar_${t.id}`,
+                resourceId: `task_${t.id}`,
+                title: serviceMap.get(t.serviceMasterId) || '',
+                start: t.startDate,
+                end: endDate.toISOString().split('T')[0],
+                className: 'task-event',
+            };
+        });
 
         const assignmentEvents: CalendarEvent[] = assignmentsData.map(a => {
-            const projectTask = tasksData.find(t => t.id === a.projectTaskId);
-            const project = projectTask ? projectsData.find(p => p.id === projectTask.projectId) : undefined;
+            let projectName = '未設定';
+            if (a.projectId) {
+                projectName = projectMap.get(a.projectId) || '不明な案件';
+            } else {
+                const projectTask = tasksData.find(t => t.id === a.projectTaskId);
+                if (projectTask) {
+                  projectName = projectMap.get(projectTask.projectId) || '不明な案件';
+                }
+            }
             return {
                 id: `assign_${a.id}`,
                 resourceId: `work_${a.workerId}`,
-                title: project?.name || '未設定',
+                title: projectName,
                 start: a.date,
                 className: 'assignment-event',
             }
         });
 
-        setEvents([...projectBgEvents, ...taskEvents, ...assignmentEvents]);
+        setEvents([...projectMainEvents, ...taskEvents, ...assignmentEvents]);
 
       } catch (err: any) {
         console.error("エラー:", err);
@@ -130,46 +165,82 @@ export default function OverallSchedulePage() {
     fetchData();
   }, []);
 
-  // ★★リサイズ処理を削除し、ドロップ処理のみに★★
-  const handleEventDrop = async (arg: EventDropArg) => {
-    const { event, oldResource, newResource } = arg;
+  // ★★ここからが新しいドラッグ＆ドロップとリサイズの処理★★
+  const handleEventChange = async (arg: EventDropArg | EventResizeDoneArg) => {
+    const { event } = arg;
     const eventId = event.id;
 
+    // --- 既存の予定の見た目を先に更新する関数 ---
+    const updateEventInState = () => {
+        setEvents(prevEvents => prevEvents.map(e => {
+            if (e.id === event.id) {
+                const updatedEvent = {
+                    ...e,
+                    resourceId: event.getResources()[0]?.id || e.resourceId,
+                    start: event.startStr,
+                    end: event.endStr,
+                };
+                // 全体工期バーの場合は、タイトルも更新
+                if (updatedEvent.className === 'project-main-event') {
+                    const duration = getDuration(updatedEvent.start, updatedEvent.end || updatedEvent.start);
+                    const name = resources.find(r => r.id === updatedEvent.resourceId)?.title || '';
+                    const endDate = event.end ? new Date(event.end.getTime() - 1) : new Date(event.startStr);
+                    updatedEvent.title = `${name} (${formatDate(updatedEvent.start)}～${formatDate(endDate.toISOString().split('T')[0])} ${duration}日間)`;
+                }
+                return updatedEvent;
+            }
+            return e;
+        }));
+    };
+
+    // --- 人員配置の更新 ---
     if (eventId.startsWith('assign_')) {
+        const { oldResource, newResource } = arg as EventDropArg;
         const assignmentId = Number(eventId.replace('assign_', ''));
         const newWorkerId = Number((newResource || oldResource)?.id.replace('work_', ''));
         const newDate = event.startStr;
 
+        updateEventInState(); // 先に画面を更新
         const { error } = await supabase
             .from('Assignments')
             .update({ workerId: newWorkerId, date: newDate })
             .eq('id', assignmentId);
-        
         if (error) {
             alert("人員配置の更新に失敗しました。");
             arg.revert();
         }
-    } else if (eventId.startsWith('task_bar_')) {
-        if (newResource && oldResource && newResource.id !== oldResource.id) {
-            alert("作業バーは他の行に移動できません。");
+        return;
+    }
+
+    // --- 工程バーの更新 ---
+    if (eventId.startsWith('proj_main_') || eventId.startsWith('task_bar_')) {
+        if ('newResource' in arg && arg.newResource && arg.oldResource && arg.newResource.id !== arg.oldResource.id) {
+            alert("工程バーは他の行に移動できません。");
             arg.revert();
             return;
         }
-        const taskId = Number(eventId.replace('task_bar_', ''));
+
+        const isProject = eventId.startsWith('proj_main_');
+        const table = isProject ? 'Projects' : 'ProjectTasks';
+        const id = Number(eventId.replace(isProject ? 'proj_main_' : 'task_bar_', ''));
+        
+        updateEventInState(); // 先に画面を更新
         const { error } = await supabase
-            .from('ProjectTasks')
+            .from(table)
             .update({ 
                 startDate: event.startStr,
                 endDate: event.end ? new Date(event.end.getTime() - 1).toISOString().split('T')[0] : event.startStr
             })
-            .eq('id', taskId);
+            .eq('id', id);
+
         if (error) {
             alert("工期の更新に失敗しました。");
             arg.revert();
         }
-    } else {
-        arg.revert();
+        return;
     }
+    
+    arg.revert();
   };
   
   const dailyAssignmentCount = new Map<string, number>();
@@ -206,6 +277,15 @@ export default function OverallSchedulePage() {
     calendarRef.current?.getApi().changeView(availableViews[currentViewIndex]);
   }, [currentViewIndex]);
 
+  useEffect(() => {
+    if (!loading) {
+        const calendarApi = calendarRef.current?.getApi();
+        if(calendarApi) {
+            calendarApi.gotoDate(new Date());
+        }
+    }
+  }, [loading]);
+
   if (loading) return <CircularProgress />;
   if (error) return <Alert severity="error">{error}</Alert>;
 
@@ -225,22 +305,16 @@ export default function OverallSchedulePage() {
           schedulerLicenseKey="GPL-My-Project-Is-Open-Source"
           locale={jaLocale}
           initialView={availableViews[currentViewIndex]}
-          initialDate={new Date()}
           headerToolbar={{ left: 'prev,next today', center: 'title', right: '' }}
           editable={true}
           resources={resources}
           resourceGroupField="group"
           resourceOrder="group,order"
           events={events}
-          eventDrop={handleEventDrop}
-          // eventResize={handleEventChange} // ★★リサイズ機能を一旦削除★★
+          eventDrop={handleEventChange}
+          eventResize={handleEventChange}
           eventContent={renderEventContent}
-          dayCellClassNames={ (arg) => {
-            const day = arg.date.getDay();
-            if (day === 0) return ['sunday'];
-            if (day === 6) return ['saturday'];
-            return [];
-          }}
+          dayCellClassNames={ (arg) => getDayClasses(arg.date) }
           slotMinWidth={60}
           resourceAreaWidth="250px"
         />
@@ -248,43 +322,39 @@ export default function OverallSchedulePage() {
       <style>{`
         /* 行の高さ調整 */
         .fc-resource-timeline .fc-timeline-lane[data-resource-id^="proj_"] .fc-timeline-lane-frame { min-height: 35px !important; }
-        .fc-resource-timeline .fc-timeline-lane[data-resource-id^="task_"] .fc-timeline-lane-frame { height: 28px !important; }
+        .fc-resource-timeline .fc-timeline-lane[data-resource-id^="task_"] .fc-timeline-lane-frame { height: 30px !important; }
         .fc-resource-timeline .fc-timeline-lane[data-resource-id^="work_"] .fc-timeline-lane-frame { height: 90px !important; }
         .fc-datagrid-cell[data-resource-id^="work_"] .fc-datagrid-cell-frame { height: 90px !important; }
 
         /* バー共通のスタイル */
-        .fc-timeline-event.fc-event-main { 
-            border-radius: 4px; 
-            padding: 2px 4px; 
-            height: 100%;
-            box-sizing: border-box;
-        }
-        .event-title { 
-            font-size: 12px; 
-            color: white; 
-            white-space: nowrap; 
-            overflow: hidden; 
-            text-overflow: ellipsis; 
-            line-height: 1.8;
-        }
+        .fc-timeline-event.fc-event-main { border-radius: 4px; padding: 2px 4px; height: 100%; }
+        .event-title { font-size: 12px; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.8; }
         
         /* バー個別の色 */
-        .fc-event.project-main-event { background-color: transparent; border: none; }
+        .fc-event.project-main-event { background-color: #a9cce3; border-color: #5499c7; }
+        .fc-event.project-main-event .event-title { color: #1a5276; font-weight: bold; }
         .fc-event.task-event { background-color: #3498db; border-color: #2980b9; }
         .fc-event.assignment-event { background-color: #2ecc71; border-color: #27ae60; }
         
         /* 人員配置イベントのスタイル */
         .assignment-event-title {
-            padding: 2px 3px; font-size: 12px; line-height: 1.3;
-            height: 100%; overflow: hidden; display: -webkit-box;
-            -webkit-box-orient: vertical; text-overflow: ellipsis; word-break: break-all;
+            padding: 2px 3px;
+            font-size: 12px;
+            line-height: 1.3;
+            height: 100%;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-box-orient: vertical;
+            text-overflow: ellipsis;
+            word-break: break-all;
         }
         
         /* 曜日の色分けをより強く指定 */
         .fc-timeline-slot.saturday .fc-timeline-slot-lane, .fc-datagrid-cell.saturday { 
             background-color: #eaf4ff !important; 
         }
-        .fc-timeline-slot.sunday .fc-timeline-slot-lane, .fc-datagrid-cell.sunday { 
+        .fc-timeline-slot.sunday .fc-timeline-slot-lane, .fc-datagrid-cell.sunday,
+        .fc-timeline-slot.holiday .fc-timeline-slot-lane, .fc-datagrid-cell.holiday { 
             background-color: #ffe9e9 !important; 
         }
       `}</style>
