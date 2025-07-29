@@ -116,7 +116,6 @@ project-management-app/
 │   ├── pages/
 │   │   ├── DashboardPage.tsx
 │   │   ├── OverallSchedulePage.tsx  <-- 現在のメイン開発画面
-│   │   ├── ProjectDetailPage.tsx    (旧画面、現在は未使用)
 │   │   └── ProjectsPage.tsx
 │   ├── App.tsx              // 全体のルーティングを管理
 │   ├── Layout.tsx           // ヘッダーとサイドバーのレイアウト
