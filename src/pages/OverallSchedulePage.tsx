@@ -19,7 +19,7 @@ import { ContentCopy, ContentCut, Delete, ContentPaste } from '@mui/icons-materi
 import { useScheduleData } from '@/hooks/useScheduleData';
 import { useEventHandlers, type ClipboardData } from '@/hooks/useEventHandlers';
 import { EVENT_CLASS_NAME } from '@/constants/scheduleConstants';
-import type { CalendarEvent } from '@/types/schedule';
+import type { CalendarEvent, Resource } from '@/types/schedule';
 import { formatDate } from '@/utils/dateUtils';
 import { getDayClasses } from '@/utils/uiUtils';
 
@@ -78,6 +78,9 @@ export default function OverallSchedulePage() {
   const [reorderDialogOpen, setReorderDialogOpen] = useState(false);
   const [reorderableAssignments, setReorderableAssignments] = useState<CalendarEvent[]>([]);
 
+  const [reorderResourceDialogOpen, setReorderResourceDialogOpen] = useState(false);
+  const [reorderableResources, setReorderableResources] = useState<Resource[]>([]);
+
   const [contextMenu, setContextMenu] = useState<{
     mouseX: number;
     mouseY: number;
@@ -114,7 +117,7 @@ export default function OverallSchedulePage() {
     if (reason === 'clickaway') return;
     setNotification((prev) => ({ ...prev, open: false }));
   };
-    const { handleEventDrop, handleEventResize, handleEventUpdate, handleAssignmentCopy, handleAssignmentCut, handleAssignmentDelete, handleBlockCopy, handleBlockCut, handleBlockDelete, handlePaste, handleAddOtherAssignment, handleReorderAssignments } = useEventHandlers(events, setEvents, resources, showNotification, clipboard, setClipboard, fetchData);
+    const { handleEventDrop, handleEventResize, handleEventUpdate, handleAssignmentCopy, handleAssignmentCut, handleAssignmentDelete, handleBlockCopy, handleBlockCut, handleBlockDelete, handlePaste, handleAddOtherAssignment, handleReorderAssignments, handleReorderResources } = useEventHandlers(events, setEvents, resources, showNotification, clipboard, setClipboard, fetchData);
 
   const handleEventClick = (clickInfo: EventClickArg) => {
     const { jsEvent, event } = clickInfo;
@@ -152,6 +155,7 @@ export default function OverallSchedulePage() {
     setEditingEvent(null);
     setOtherAssignmentDialogOpen(false);
     setReorderDialogOpen(false);
+    setReorderResourceDialogOpen(false);
   };
 
   const handleSave = async () => {
@@ -177,6 +181,16 @@ export default function OverallSchedulePage() {
       handleCloseDialog();
   }
 
+  const handleReorderResourcesClick = (group: 'projects' | 'workers') => {
+    setReorderableResources(resources.filter(r => r.group === group));
+    setReorderResourceDialogOpen(true);
+  };
+
+  const handleSaveResourceReorder = async () => {
+    await handleReorderResources(reorderableResources);
+    handleCloseDialog();
+  };
+
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -189,6 +203,18 @@ export default function OverallSchedulePage() {
     
     if (active.id !== over.id) {
       setReorderableAssignments((items) => {
+        const oldIndex = items.findIndex(item => item.id === active.id);
+        const newIndex = items.findIndex(item => item.id === over.id);
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
+  }
+
+  function handleResourceDragEnd(event: any) {
+    const {active, over} = event;
+
+    if (active.id !== over.id) {
+      setReorderableResources((items) => {
         const oldIndex = items.findIndex(item => item.id === active.id);
         const newIndex = items.findIndex(item => item.id === over.id);
         return arrayMove(items, oldIndex, newIndex);
@@ -235,7 +261,7 @@ export default function OverallSchedulePage() {
         open={contextMenu !== null}
         onClose={handleCloseContextMenu}
         anchorReference="anchorPosition"
-        anchorPosition={contextMenu !== null ? { top: contextMenu.mouseY, left: contextMenu.mouseX } : undefined}
+        anchorPosition={contextMenu !== null ? { top: contextContext.mouseY, left: contextMenu.mouseX } : undefined}
       >
         {hasEvent && [
           <MenuItem key="edit-view" onClick={() => handleMenuClick(handleEditOrViewClick)}><ListItemIcon><EditIcon fontSize="small" /></ListItemIcon>編集/並び替え</MenuItem>,
@@ -261,6 +287,9 @@ export default function OverallSchedulePage() {
           <ListItemIcon><ContentPaste fontSize="small" /></ListItemIcon>
           貼り付け
         </MenuItem>
+        <Divider />
+        <MenuItem onClick={() => handleMenuClick(() => handleReorderResourcesClick('projects'))}><ListItemIcon><EditIcon fontSize="small" /></ListItemIcon>案件一覧の並び替え</MenuItem>
+        <MenuItem onClick={() => handleMenuClick(() => handleReorderResourcesClick('workers'))}><ListItemIcon><EditIcon fontSize="small" /></ListItemIcon>作業員一覧の並び替え</MenuItem>
       </Menu>
     );
   };
@@ -452,15 +481,29 @@ export default function OverallSchedulePage() {
         <DialogContent>
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 <SortableContext items={reorderableAssignments.map(item => item.id)} strategy={verticalListSortingStrategy}>
-                    {reorderableResources.map(item => (
-                <SortableItem key={item.id} id={item.id} title={item.title} />
-              ))}
+                    {reorderableAssignments.map(item => <SortableItem key={item.id} id={item.id} title={item.title} />)}
                 </SortableContext>
             </DndContext>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseDialog}>キャンセル</Button>
           <Button onClick={handleSaveReorder}>保存</Button>
+        </DialogActions>
+      </Dialog>
+      <Dialog open={reorderResourceDialogOpen} onClose={handleCloseDialog}>
+        <DialogTitle>リソースの並び替え</DialogTitle>
+        <DialogContent>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleResourceDragEnd}>
+            <SortableContext items={reorderableResources.map(item => item.id)} strategy={verticalListSortingStrategy}>
+              {reorderableResources.map(item => (
+                <SortableItem key={item.id} id={item.id} title={item.title} />
+              ))}
+            </SortableContext>
+          </DndContext>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDialog}>キャンセル</Button>
+          <Button onClick={handleSaveResourceReorder}>保存</Button>
         </DialogActions>
       </Dialog>
       <Dialog open={!!editingEvent} onClose={handleCloseDialog}>
@@ -470,7 +513,7 @@ export default function OverallSchedulePage() {
             autoFocus
             margin="dense"
             id="title"
-            name="title"
+            name="name"
             label="案件名"
             type="text"
             fullWidth
