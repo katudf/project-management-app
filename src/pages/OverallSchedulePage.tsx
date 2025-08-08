@@ -56,10 +56,13 @@ const SortableItem = ({ id, title }: { id: string, title: string }) => {
         marginBottom: '4px',
         backgroundColor: 'white',
         cursor: 'grab',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
     };
     return (
         <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-            {title}
+            <span>{title}</span>
         </div>
     );
 };
@@ -449,7 +452,9 @@ export default function OverallSchedulePage() {
         <DialogContent>
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 <SortableContext items={reorderableAssignments.map(item => item.id)} strategy={verticalListSortingStrategy}>
-                    {reorderableAssignments.map(item => <SortableItem key={item.id} id={item.id} title={item.title} />)}
+                    {reorderableResources.map(item => (
+                <SortableItem key={item.id} id={item.id} title={item.title} />
+              ))}
                 </SortableContext>
             </DndContext>
         </DialogContent>
