@@ -1,19 +1,16 @@
 {
   "compilerOptions": {
+    "composite": true, // <-- これを追加！
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
     "target": "ES2023",
     "lib": ["ES2023"],
     "module": "ESNext",
     "skipLibCheck": true,
-
-    /* Bundler mode */
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "moduleDetection": "force",
-    "noEmit": true,
-
-    /* Linting */
+    // "noEmit": true, // <-- この行を削除、または先頭に // を付けてコメントアウト！
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
