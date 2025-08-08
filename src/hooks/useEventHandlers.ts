@@ -33,13 +33,13 @@ export const useEventHandlers = (
     if (event.classNames.includes(EVENT_CLASS_NAME.PROJECT_MAIN) && newResource?.id.startsWith(RESOURCE_PREFIX.WORKER)) {
         revert(); // Don't move the project event, just use its data
 
-        const ourEvent = originalEvents.find(e => e.id === event.id);
+        const ourEvent = originalEvents.find((e: CalendarEvent) => e.id === event.id);
         if (!ourEvent) {
             showNotification('元のイベントが見つかりません。', 'error');
             return;
         }
 
-        const projectResource = resources.find(r => r.id === ourEvent.resourceId);
+        const projectResource = resources.find((r: Resource) => r.id === ourEvent.resourceId);
         if (!projectResource) {
             showNotification('プロジェクトリソースが見つかりません。', 'error');
             return;
@@ -103,12 +103,12 @@ export const useEventHandlers = (
         let newEnd = new Date(newStart.getTime() + duration);
 
         if (!isProject) {
-          const ourEvent = originalEvents.find(e => e.id === event.id);
-          const taskResource = resources.find(r => r.id === ourEvent?.resourceId);
+          const ourEvent = originalEvents.find((e: CalendarEvent) => e.id === event.id);
+          const taskResource = resources.find((r: Resource) => r.id === ourEvent?.resourceId);
 
           if (taskResource && taskResource.parentId) {
             const parentProjectId = taskResource.parentId;
-            const projectEvent = events.find(e => 
+            const projectEvent = events.find((e: CalendarEvent) => 
                 e.resourceId === parentProjectId && 
                 e.className?.includes(EVENT_CLASS_NAME.PROJECT_MAIN)
             );
@@ -135,11 +135,11 @@ export const useEventHandlers = (
         const newEndStr = newEnd.toISOString().split('T')[0];
         const dbEndDate = new Date(newEnd.getTime() - 1).toISOString().split('T')[0];
 
-        setEvents(prev => prev.map(e => {
+        setEvents(prev => prev.map((e: CalendarEvent) => {
           if (e.id === event.id) {
             const updatedEvent = { ...e, start: newStartStr, end: newEndStr };
             if (isProject) {
-              const name = resources.find(r => r.id === updatedEvent.resourceId)?.title || '';
+              const name = resources.find((r: Resource) => r.id === updatedEvent.resourceId)?.title || '';
               const displayDuration = getDuration(newStartStr, newEndStr);
               updatedEvent.title = `${name} (${formatDate(newStartStr)}～${dbEndDate} ${displayDuration}日間)`;
             }
@@ -160,8 +160,8 @@ export const useEventHandlers = (
             const dateDiff = newStart.getTime() - new Date(oldEvent.startStr).getTime();
             const projectResourceId = event.getResources()[0]?.id;
 
-            const tasksToUpdate = originalEvents.filter(e => {
-              const taskResource = resources.find(r => r.id === e.resourceId);
+            const tasksToUpdate = originalEvents.filter((e: CalendarEvent) => {
+              const taskResource = resources.find((r: Resource) => r.id === e.resourceId);
               return taskResource?.parentId === projectResourceId;
             });
 
@@ -181,7 +181,7 @@ export const useEventHandlers = (
               updatedTaskEvents.push({ ...taskEvent, start: taskStartStr, end: taskEndStr });
             }
             
-            setEvents(currentEvents => currentEvents.map(e => 
+            setEvents(currentEvents => currentEvents.map((e: CalendarEvent) => 
                 updatedTaskEvents.find(ute => ute.id === e.id) || e
             ));
           }
@@ -198,7 +198,7 @@ export const useEventHandlers = (
       const isCopy = arg.jsEvent.ctrlKey;
 
       // Find the dragged event in our original state to get accurate old position
-      const draggedCalendarEvent = originalEvents.find(e => e.id === oldEvent.id);
+      const draggedCalendarEvent = originalEvents.find((e: CalendarEvent) => e.id === oldEvent.id);
 
       if (!draggedCalendarEvent) {
         revert();
@@ -214,7 +214,7 @@ export const useEventHandlers = (
       }
 
       // Find all events that were in the original block (same resource, same date)
-      const eventsInBlock = originalEvents.filter(e =>
+      const eventsInBlock = originalEvents.filter((e: CalendarEvent) =>
         e.resourceId === oldResourceId &&
         e.start === oldDate &&
         e.className?.includes(EVENT_CLASS_NAME.ASSIGNMENT)
@@ -262,8 +262,8 @@ export const useEventHandlers = (
           // --- COPY LOGIC ---
           revert(); // Revert the original event move, as we are creating new ones
 
-          const newAssignmentsToInsert = eventsInBlock.map(e => {
-            const project = resources.find(r => r.title === e.title && r.group === 'projects');
+          const newAssignmentsToInsert = eventsInBlock.map((e: CalendarEvent) => {
+            const project = resources.find((r: Resource) => r.title === e.title && r.group === 'projects');
             return {
               projectId: project ? Number(project.id.replace(RESOURCE_PREFIX.PROJECT_MAIN, '')) : null,
               workerId: newWorkerId,
@@ -279,7 +279,7 @@ export const useEventHandlers = (
 
           if (insertError) throw insertError;
 
-          const newEvents: CalendarEvent[] = insertedData.map((a, index) => ({
+          const newEvents: CalendarEvent[] = insertedData.map((a: any, index: number) => ({
             id: `assign_${a.id}`,
             resourceId: `work_${a.workerId}`,
             title: eventsInBlock[index].title, // Keep original title
@@ -298,10 +298,10 @@ export const useEventHandlers = (
             return; // No change, do nothing
           }
 
-          const blockEventIds = new Set(eventsInBlock.map(e => e.id));
+          const blockEventIds = new Set(eventsInBlock.map((e: CalendarEvent) => e.id));
           setEvents(prevEvents => {
-              const otherEvents = prevEvents.filter(e => !blockEventIds.has(e.id));
-              const updatedBlockEvents = eventsInBlock.map(e => ({
+              const otherEvents = prevEvents.filter((e: CalendarEvent) => !blockEventIds.has(e.id));
+              const updatedBlockEvents = eventsInBlock.map((e: CalendarEvent) => ({
                   ...e,
                   resourceId: newResourceId,
                   start: newDate,
@@ -310,7 +310,7 @@ export const useEventHandlers = (
               return [...otherEvents, ...updatedBlockEvents];
           });
 
-          const updates = eventsInBlock.map(e => {
+          const updates = eventsInBlock.map((e: CalendarEvent) => {
             const assignmentId = Number(e.id.replace('assign_', ''));
             return supabase
               .from('Assignments')
@@ -348,12 +348,12 @@ export const useEventHandlers = (
 
         // --- Task boundary check ---
         if (!isProject) {
-            const ourEvent = originalEvents.find(e => e.id === event.id);
-            const taskResource = resources.find(r => r.id === ourEvent?.resourceId);
+            const ourEvent = originalEvents.find((e: CalendarEvent) => e.id === event.id);
+            const taskResource = resources.find((r: Resource) => r.id === ourEvent?.resourceId);
 
             if (taskResource && taskResource.parentId) {
                 const parentProjectId = taskResource.parentId;
-                const projectEvent = events.find(e => 
+                const projectEvent = events.find((e: CalendarEvent) => 
                     e.resourceId === parentProjectId &&
                     e.className?.includes(EVENT_CLASS_NAME.PROJECT_MAIN)
                 );
@@ -368,7 +368,8 @@ export const useEventHandlers = (
                     }
                     if (newEnd > projectEnd) {
                         newEnd = projectEnd;
-                        showNotification('タスクの終了日はプロジェクトの終了日より後にできません。', 'warning');
+                        newStart = new Date(newEnd.getTime() - duration);
+                        showNotification('タスクがプロジェクト終了日より後にならないように調整しました。', 'info');
                     }
                     
                     if (newEnd <= newStart) {
@@ -388,11 +389,11 @@ export const useEventHandlers = (
         const id = Number(event.id.replace(isProject ? RESOURCE_PREFIX.PROJECT_MAIN : RESOURCE_PREFIX.TASK_BAR, ''));
 
         // Optimistic UI Update
-        setEvents(prev => prev.map(e => {
+        setEvents(prev => prev.map((e: CalendarEvent) => {
             if (e.id === event.id) {
                 const updatedEvent = { ...e, start: newStartStr, end: newEndStr };
                 if (isProject) {
-                    const name = resources.find(r => r.id === updatedEvent.resourceId)?.title || '';
+                    const name = resources.find((r: Resource) => r.id === updatedEvent.resourceId)?.title || '';
                     const displayDuration = getDuration(newStartStr, newEndStr);
                     updatedEvent.title = `${name} (${formatDate(newStartStr)}～${dbEndDate} ${displayDuration}日間)`;
                 }
@@ -422,7 +423,7 @@ export const useEventHandlers = (
     const originalEvents = [...events];
     const { id, start } = updatedEvent;
 
-    setEvents(prev => prev.map(e => e.id === id ? { ...e, start: updatedEvent.start } : e));
+    setEvents(prev => prev.map((e: CalendarEvent) => e.id === id ? { ...e, start: updatedEvent.start } : e));
 
     if (id.startsWith('assign_')) {
       const assignmentId = Number(id.replace('assign_', ''));
@@ -450,7 +451,7 @@ export const useEventHandlers = (
   };
 
   const handleAssignmentCopy = (targetEvent: CalendarEvent) => {
-    const projectId = Number(resources.find(r => r.title === targetEvent.title)?.id.replace('proj_', '') || null);
+    const projectId = Number(resources.find((r: Resource) => r.title === targetEvent.title)?.id.replace('proj_', '') || null);
     const clipboardData: ClipboardEventData = { event: targetEvent, projectId: projectId };
 
     setClipboard({ type: 'single', data: [clipboardData] });
@@ -458,7 +459,7 @@ export const useEventHandlers = (
   };
 
   const handleAssignmentCut = async (targetEvent: CalendarEvent) => {
-    const projectId = Number(resources.find(r => r.title === targetEvent.title)?.id.replace('proj_', '') || null);
+    const projectId = Number(resources.find((r: Resource) => r.title === targetEvent.title)?.id.replace('proj_', '') || null);
     const clipboardData: ClipboardEventData = { event: targetEvent, projectId: projectId };
 
     setClipboard({ type: 'single', data: [clipboardData] });
@@ -469,7 +470,7 @@ export const useEventHandlers = (
     const originalEvents = [...events];
     const assignmentId = Number(targetEvent.id.replace('assign_', ''));
 
-    setEvents(prev => prev.filter(e => e.id !== targetEvent.id));
+    setEvents(prev => prev.filter((e: CalendarEvent) => e.id !== targetEvent.id));
 
     try {
       const { error } = await supabase.from('Assignments').delete().eq('id', assignmentId);
@@ -484,10 +485,10 @@ export const useEventHandlers = (
   };
 
   const handleBlockCopy = (resourceId: string, date: string) => {
-    const eventsToCopy = events.filter(e => e.resourceId === resourceId && e.start === date);
+    const eventsToCopy = events.filter((e: CalendarEvent) => e.resourceId === resourceId && e.start === date);
     if (eventsToCopy.length > 0) {
-      const clipboardBlockData: ClipboardEventData[] = eventsToCopy.map(event => {
-        const projectId = Number(resources.find(r => r.title === event.title)?.id.replace('proj_', '') || null);
+      const clipboardBlockData: ClipboardEventData[] = eventsToCopy.map((event: CalendarEvent) => {
+        const projectId = Number(resources.find((r: Resource) => r.title === event.title)?.id.replace('proj_', '') || null);
         return { event, projectId };
       });
 
@@ -503,12 +504,12 @@ export const useEventHandlers = (
 
   const handleBlockDelete = async (resourceId: string, date: string, showSuccessNotification = true) => {
     const originalEvents = [...events];
-    const eventsToDelete = originalEvents.filter(e => e.resourceId === resourceId && e.start === date);
-    const idsToDelete = eventsToDelete.map(e => Number(e.id.replace('assign_', '')));
+    const eventsToDelete = originalEvents.filter((e: CalendarEvent) => e.resourceId === resourceId && e.start === date);
+    const idsToDelete = eventsToDelete.map((e: CalendarEvent) => Number(e.id.replace('assign_', '')));
 
     if (idsToDelete.length === 0) return;
 
-    setEvents(prev => prev.filter(e => !(e.resourceId === resourceId && e.start === date)));
+    setEvents(prev => prev.filter((e: CalendarEvent) => !(e.resourceId === resourceId && e.start === date)));
 
     try {
       const { error } = await supabase.from('Assignments').delete().in('id', idsToDelete);
@@ -547,7 +548,7 @@ export const useEventHandlers = (
       return;
     }
 
-    const newAssignmentsToInsert = clipboard.data.map(clipboardItem => ({
+    const newAssignmentsToInsert = clipboard.data.map((clipboardItem: ClipboardEventData) => ({
       projectId: clipboardItem.projectId,
       workerId: targetWorkerId,
       date: targetDate,
@@ -561,7 +562,7 @@ export const useEventHandlers = (
 
       if (insertError) throw insertError;
 
-      const newEvents: CalendarEvent[] = insertedData.map((a, index) => ({
+      const newEvents: CalendarEvent[] = insertedData.map((a: any, index: number) => ({
         id: `assign_${a.id}`,
         resourceId: `work_${a.workerId}`,
         title: clipboard.data[index].event.title,
@@ -606,7 +607,7 @@ export const useEventHandlers = (
 
   const handleReorderAssignments = async (reorderedAssignments: CalendarEvent[]) => {
       try {
-          const updates = reorderedAssignments.map((event, index) => {
+          const updates = reorderedAssignments.map((event: CalendarEvent, index: number) => {
               const id = Number(event.id.replace('assign_', ''));
               return supabase.from('Assignments').update({ assignment_order: index }).eq('id', id);
           });
@@ -627,5 +628,30 @@ export const useEventHandlers = (
       }
   };
 
-  return { handleEventDrop, handleEventResize, handleEventUpdate, handleAssignmentCopy, handleAssignmentCut, handleAssignmentDelete, handleBlockCopy, handleBlockCut, handleBlockDelete, handlePaste, handleAddOtherAssignment, handleReorderAssignments };
+  const handleReorderResources = async (reorderedResources: Resource[]) => {
+    try {
+      const updates = reorderedResources.map((resource: Resource, index: number) => {
+        const id = Number(resource.id.replace(resource.group === 'projects' ? RESOURCE_PREFIX.PROJECT : RESOURCE_PREFIX.WORKER, ''));
+        const table = resource.group === 'projects' ? 'Projects' : 'Workers';
+        return supabase.from(table).update({ order: index }).eq('id', id);
+      });
+
+      const results = await Promise.all(updates);
+      const firstError = results.find(res => res.error);
+      if (firstError) {
+        console.error("Supabase resource reorder error:", firstError.error);
+        throw firstError.error;
+      }
+
+      await fetchData();
+      showNotification('リソースの表示順を更新しました。', 'success');
+      return true;
+    } catch (error: any) {
+      console.error("Error reordering resources:", error);
+      showNotification('リソースの表示順の更新に失敗しました。', 'error');
+      return false;
+    }
+  };
+
+  return { handleEventDrop, handleEventResize, handleEventUpdate, handleAssignmentCopy, handleAssignmentCut, handleAssignmentDelete, handleBlockCopy, handleBlockCut, handleBlockDelete, handlePaste, handleAddOtherAssignment, handleReorderAssignments, handleReorderResources };
 };

@@ -1,9 +1,9 @@
 // src/pages/OverallSchedulePage.tsx
 import { useEffect, useState, useRef, useMemo } from 'react';
-import { Paper, CircularProgress, Alert, Typography, Box, Button, ButtonGroup, styled, Snackbar, IconButton, Dialog, DialogActions, DialogContent, DialogTitle, TextField, Tooltip, Popover, List, ListItem, ListItemText, Menu, MenuItem, ListItemIcon, Divider } from '@mui/material';
+import { Paper, CircularProgress, Alert, Typography, Box, Button, ButtonGroup, styled, Snackbar, IconButton, Dialog, DialogActions, DialogContent, DialogTitle, TextField, Tooltip, Menu, MenuItem, ListItemIcon, Divider } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
@@ -11,7 +11,8 @@ import FullCalendar from '@fullcalendar/react';
 import resourceTimelinePlugin from '@fullcalendar/resource-timeline';
 import interactionPlugin from '@fullcalendar/interaction';
 import dayGridPlugin from '@fullcalendar/daygrid';
-import type { EventContentArg, EventClickArg, EventApi, DateClickArg } from '@fullcalendar/core';
+import type { EventContentArg, EventClickArg } from '@fullcalendar/core';
+import type { DateClickArg } from '@fullcalendar/interaction';
 import jaLocale from '@fullcalendar/core/locales/ja';
 import ReplayIcon from '@mui/icons-material/Replay';
 import { ContentCopy, ContentCut, Delete, ContentPaste } from '@mui/icons-material';
@@ -198,10 +199,10 @@ export default function OverallSchedulePage() {
     })
   );
 
-  function handleDragEnd(event: any) {
+  function handleDragEnd(event: DragEndEvent) {
     const {active, over} = event;
     
-    if (active.id !== over.id) {
+    if (over && active.id !== over.id) {
       setReorderableAssignments((items) => {
         const oldIndex = items.findIndex(item => item.id === active.id);
         const newIndex = items.findIndex(item => item.id === over.id);
@@ -210,10 +211,10 @@ export default function OverallSchedulePage() {
     }
   }
 
-  function handleResourceDragEnd(event: any) {
+  function handleResourceDragEnd(event: DragEndEvent) {
     const {active, over} = event;
 
-    if (active.id !== over.id) {
+    if (over && active.id !== over.id) {
       setReorderableResources((items) => {
         const oldIndex = items.findIndex(item => item.id === active.id);
         const newIndex = items.findIndex(item => item.id === over.id);
@@ -261,7 +262,7 @@ export default function OverallSchedulePage() {
         open={contextMenu !== null}
         onClose={handleCloseContextMenu}
         anchorReference="anchorPosition"
-        anchorPosition={contextMenu !== null ? { top: contextContext.mouseY, left: contextMenu.mouseX } : undefined}
+        anchorPosition={contextMenu !== null ? { top: contextMenu.mouseY, left: contextMenu.mouseX } : undefined}
       >
         {hasEvent && [
           <MenuItem key="edit-view" onClick={() => handleMenuClick(handleEditOrViewClick)}><ListItemIcon><EditIcon fontSize="small" /></ListItemIcon>編集/並び替え</MenuItem>,
@@ -361,13 +362,6 @@ export default function OverallSchedulePage() {
     if (event.classNames.includes(EVENT_CLASS_NAME.ASSIGNMENT)) {
       const key = `${event.getResources()[0]?.id}_${event.startStr}`;
       const count = dailyAssignmentCount.get(key) || 1;
-
-      const individualTooltipContent = (
-        <Box sx={{ p: 1 }}>
-          <Typography variant="subtitle2" gutterBottom>{title}</Typography>
-          <Typography variant="body2">日付: {start}</Typography>
-        </Box>
-      );
 
       let webkitLineClamp = 1;
       let fontSize = '10px';
