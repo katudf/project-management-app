@@ -40,3 +40,32 @@
 .read-the-docs {
   color: #888;
 }
+
+/* FullCalendar day cell styling */
+.fc-daygrid-day.holiday {
+  background-color: #ffe9e9 !important; /* Light red for holidays */
+}
+
+.fc-daygrid-day.sunday {
+  background-color: #ffe9e9 !important; /* Light red for Sundays */
+}
+
+.fc-daygrid-day.saturday {
+  background-color: #eaf4ff !important; /* Light blue for Saturdays */
+}
+
+/* For resource timeline view */
+.fc-timeline-slot.holiday .fc-timeline-slot-lane,
+.fc-datagrid-cell.holiday {
+  background-color: #ffe9e9 !important;
+}
+
+.fc-timeline-slot.sunday .fc-timeline-slot-lane,
+.fc-datagrid-cell.sunday {
+  background-color: #ffe9e9 !important;
+}
+
+.fc-timeline-slot.saturday .fc-timeline-slot-lane,
+.fc-datagrid-cell.saturday {
+  background-color: #eaf4ff !important;
+}
