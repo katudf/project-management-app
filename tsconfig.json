@@ -5,8 +5,7 @@
     { "path": "./tsconfig.app.json" },
     { "path": "./tsconfig.node.json" }
   ],
-  // ↓↓↓ この compilerOptions を追加 ↓↓↓
-  "compilerOptions": {
+    "compilerOptions": {
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"]
