@@ -1,6 +1,6 @@
 // src/pages/OverallSchedulePage.tsx
 import { useEffect, useState, useRef, useMemo } from 'react';
-import { Paper, CircularProgress, Alert, Typography, Box, Button, ButtonGroup, styled, Snackbar, IconButton, Dialog, DialogActions, DialogContent, DialogTitle, TextField, Tooltip, Menu, MenuItem, ListItemIcon, Divider } from '@mui/material';
+import { Paper, CircularProgress, Alert, Typography, Box, Button, ButtonGroup, Snackbar, IconButton, Dialog, DialogActions, DialogContent, DialogTitle, TextField, Tooltip, Menu, MenuItem, ListItemIcon, Divider } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
@@ -23,29 +23,6 @@ import { EVENT_CLASS_NAME } from '@/constants/scheduleConstants';
 import type { CalendarEvent, Resource } from '@/types/schedule';
 import { formatDate } from '@/utils/dateUtils';
 import { getDayClasses } from '@/utils/uiUtils';
-
-// スタイル付きコンポーネントの定義
-const StyledCalendarWrapper = styled(Paper)(({ theme }) => ({
-  marginTop: theme.spacing(2),
-  overflowX: 'auto',
-  '.fc-resource-timeline .fc-timeline-lane[data-resource-id^="proj_"] .fc-timeline-lane-frame': { height: '30px !important' },
-  '.fc-resource-timeline .fc-timeline-lane[data-resource-id^="task_"] .fc-timeline-lane-frame': { height: '30px !important' },
-  '.fc-resource-timeline .fc-timeline-lane[data-resource-id^="work_"] .fc-timeline-lane-frame': { height: '68px !important' },
-  '.fc-datagrid-cell[data-resource-id^="proj_"] .fc-datagrid-cell-frame': { height: '30px !important' },
-  '.fc-datagrid-cell[data-resource-id^="task_"] .fc-datagrid-cell-frame': { height: '30px !important' },
-  '.fc-datagrid-cell[data-resource-id^="work_"] .fc-datagrid-cell-frame': { height: '68px !important' },
-  '.fc-timeline-event.fc-event-main, .fc-timeline-event.fc-event-main .fc-event-main-frame': {
-    borderRadius: '4px !important',
-    overflow: 'hidden !important',
-  },
-  '.event-title': { fontSize: '12px', color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 2.0 },
-  '.fc-event.project-main-event': { backgroundColor: '#a9cce3', borderColor: '#5499c7', cursor: 'grab', '.event-title': { color: '#1a5276', fontWeight: 'bold' } },
-  '.fc-event.task-event': { backgroundColor: '#3498db', borderColor: '#2980b9' },
-  '.fc-event.assignment-event': { backgroundColor: '#2ecc71', borderColor: '#27ae60' },
-  '.assignment-event-title': { padding: '2px 4px', fontSize: '10px', lineHeight: 1.2, overflow: 'hidden', display: '-webkit-box', WebkitBoxOrient: 'vertical', textOverflow: 'ellipsis', wordBreak: 'break-word' },
-  '.fc-timeline-slot.saturday .fc-timeline-slot-lane, .fc-datagrid-cell.saturday': { backgroundColor: '#eaf4ff !important' },
-  '.fc-timeline-slot.sunday .fc-timeline-slot-lane, .fc-datagrid-cell.sunday, .fc-timeline-slot.holiday .fc-timeline-slot-lane, .fc-datagrid-cell.holiday': { backgroundColor: '#ffe9e9 !important' },
-}));
 
 const SortableItem = ({ id, title }: { id: string, title: string }) => {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
@@ -414,6 +391,22 @@ export default function OverallSchedulePage() {
     }
   }, [loading]);
 
+
+  useEffect(() => {
+    // 土曜
+    document.querySelectorAll('td.fc-timeline-slot.saturday').forEach((el) => {
+      (el as HTMLElement).style.backgroundColor = '#f0f8ff';
+    });
+    // 日曜
+    document.querySelectorAll('td.fc-timeline-slot.sunday').forEach((el) => {
+      (el as HTMLElement).style.backgroundColor = '#fff0f0';
+    });
+    // 祝日
+    document.querySelectorAll('td.fc-timeline-slot.holiday').forEach((el) => {
+      (el as HTMLElement).style.backgroundColor = '#fff0f0';
+    });
+  });
+
   useEffect(() => {
     if (dataError) {
       showNotification(`データの読み込みに失敗しました: ${dataError}`, 'error');
@@ -437,7 +430,7 @@ export default function OverallSchedulePage() {
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}><CircularProgress /></Box>
       ) : (
-        <StyledCalendarWrapper>
+        <Paper sx={{ marginTop: 2, overflowX: 'auto' }}>
           <FullCalendar
             ref={calendarRef}
             plugins={[resourceTimelinePlugin, interactionPlugin, dayGridPlugin]}
@@ -457,12 +450,19 @@ export default function OverallSchedulePage() {
             eventContent={renderEventContent}
             dateClick={handleDateClick}
             eventClick={handleEventClick}
-            dayCellClassNames={getDayClasses}
+            slotLaneDidMount={(info) => {
+              const classes = getDayClasses({ date: info.date, view: info.view, isPast: false, isFuture: false, isToday: false });
+              classes.forEach(cls => info.el.classList.add(cls));
+            }}
+            slotLabelDidMount={(info) => {
+              const classes = getDayClasses({ date: info.date, view: info.view, isPast: false, isFuture: false, isToday: false });
+              classes.forEach(cls => info.el.classList.add(cls));
+            }}
             slotMinWidth={60}
             resourceAreaWidth="250px"
             dragScroll={true}
           />
-        </StyledCalendarWrapper>
+        </Paper>
       )}
       {renderContextMenu()}
       <Snackbar open={notification.open} autoHideDuration={6000} onClose={handleCloseNotification}>

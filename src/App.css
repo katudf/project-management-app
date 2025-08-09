@@ -1,3 +1,4 @@
+
 #root {
   max-width: 1280px;
   margin: 0 auto;
@@ -5,67 +6,95 @@
   text-align: center;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
+/* General FullCalendar layout and event styling */
+.fc-resource-timeline .fc-timeline-lane[data-resource-id^="proj_"] .fc-timeline-lane-frame { height: 30px !important; }
+.fc-resource-timeline .fc-timeline-lane[data-resource-id^="task_"] .fc-timeline-lane-frame { height: 30px !important; }
+.fc-resource-timeline .fc-timeline-lane[data-resource-id^="work_"] .fc-timeline-lane-frame { height: 68px !important; }
+.fc-datagrid-cell[data-resource-id^="proj_"] .fc-datagrid-cell-frame { height: 30px !important; }
+.fc-datagrid-cell[data-resource-id^="task_"] .fc-datagrid-cell-frame { height: 30px !important; }
+.fc-datagrid-cell[data-resource-id^="work_"] .fc-datagrid-cell-frame { height: 68px !important; }
+
+.fc-timeline-event.fc-event-main, .fc-timeline-event.fc-event-main .fc-event-main-frame {
+  border-radius: 4px !important;
+  overflow: hidden !important;
 }
 
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.event-title { 
+  font-size: 12px;
+  color: white;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 2.0;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
+.fc-event.project-main-event { 
+  background-color: #a9cce3;
+  border-color: #5499c7;
+  cursor: grab;
+}
+.fc-event.project-main-event .event-title {
+  color: #1a5276;
+  font-weight: bold;
 }
 
-.card {
-  padding: 2em;
+.fc-event.task-event { 
+  background-color: #3498db;
+  border-color: #2980b9;
 }
 
-.read-the-docs {
-  color: #888;
+.fc-event.assignment-event { 
+  background-color: #2ecc71;
+  border-color: #27ae60;
 }
 
-/* FullCalendar day cell styling */
-.fc-daygrid-day.holiday {
-  background-color: #ffe9e9 !important; /* Light red for holidays */
+.assignment-event-title { 
+  padding: 2px 4px;
+  font-size: 10px;
+  line-height: 1.2;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  text-overflow: ellipsis;
+  word-break: break-word;
 }
 
-.fc-daygrid-day.sunday {
-  background-color: #ffe9e9 !important; /* Light red for Sundays */
-}
+/* Day cell background colors */
 
-.fc-daygrid-day.saturday {
-  background-color: #eaf4ff !important; /* Light blue for Saturdays */
-}
 
-/* For resource timeline view */
-.fc-timeline-slot.holiday .fc-timeline-slot-lane,
-.fc-datagrid-cell.holiday {
-  background-color: #ffe9e9 !important;
-}
 
-.fc-timeline-slot.sunday .fc-timeline-slot-lane,
-.fc-datagrid-cell.sunday {
-  background-color: #ffe9e9 !important;
-}
-
+td.fc-timeline-slot.saturday,
+td.fc-timeline-slot.saturday > div,
 .fc-timeline-slot.saturday .fc-timeline-slot-lane,
+.fc-timeline-slot.saturday,
+.fc-datagrid-cell.saturday .fc-datagrid-cell-frame,
 .fc-datagrid-cell.saturday {
-  background-color: #eaf4ff !important;
+  background-color: #f0f8ff !important;
+  background: #f0f8ff !important;
+}
+
+td.fc-timeline-slot.sunday,
+td.fc-timeline-slot.sunday > div,
+.fc-timeline-slot.sunday .fc-timeline-slot-lane,
+.fc-timeline-slot.sunday,
+.fc-datagrid-cell.sunday .fc-datagrid-cell-frame,
+.fc-datagrid-cell.sunday {
+  background-color: #fff0f0 !important;
+  background: #fff0f0 !important;
+}
+
+td.fc-timeline-slot.holiday,
+td.fc-timeline-slot.holiday > div,
+.fc-timeline-slot.holiday .fc-timeline-slot-lane,
+.fc-timeline-slot.holiday,
+.fc-datagrid-cell.holiday .fc-datagrid-cell-frame,
+.fc-datagrid-cell.holiday {
+  background-color: #fff0f0 !important;
+  background: #fff0f0 !important;
+}
+
+/* Borders to maintain grid lines */
+.fc-timeline-slot-lane, .fc-datagrid-cell-frame {
+  border-right: 1px solid #ddd;
+  border-bottom: 1px solid #ddd;
 }
