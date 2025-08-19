@@ -77,6 +77,7 @@ td.fc-timeline-slot.saturday > div,
 .fc-datagrid-cell.saturday {
   background-color: #f0f8ff !important;
   background: #f0f8ff !important;
+  color: #0000ff !important;
 }
 
 td.fc-timeline-slot.sunday,
@@ -87,6 +88,7 @@ td.fc-timeline-slot.sunday > div,
 .fc-datagrid-cell.sunday {
   background-color: #fff0f0 !important;
   background: #fff0f0 !important;
+  color: #ff0000 !important;
 }
 
 td.fc-timeline-slot.holiday,
@@ -97,6 +99,7 @@ td.fc-timeline-slot.holiday > div,
 .fc-datagrid-cell.holiday {
   background-color: #fff0f0 !important;
   background: #fff0f0 !important;
+  color: #ff0000 !important;
 }
 
 /* Borders to maintain grid lines */
