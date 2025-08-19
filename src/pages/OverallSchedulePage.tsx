@@ -374,17 +374,6 @@ export default function OverallSchedulePage() {
     );
   };
 
-  const availableViews = useMemo(() => ['resourceTimelineWeek', 'resourceTimelineMonth', 'resourceTimelineYear'], []);
-  const [currentViewIndex, setCurrentViewIndex] = useState(1);
-  const handleZoomIn = () => setCurrentViewIndex(prev => Math.max(0, prev - 1));
-  const handleZoomOut = () => setCurrentViewIndex(prev => Math.min(availableViews.length - 1, prev + 1));
-
-  useEffect(() => {
-    if (calendarRef.current) {
-        calendarRef.current.getApi().changeView(availableViews[currentViewIndex]);
-    }
-  }, [currentViewIndex, availableViews]);
-
   useEffect(() => {
     if (!loading && calendarRef.current) {
       calendarRef.current.getApi().gotoDate(new Date());
@@ -417,15 +406,13 @@ export default function OverallSchedulePage() {
     <div>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h4" gutterBottom>全体工程管理ボード</Typography>
-        <ButtonGroup variant="outlined">
-          <Button onClick={handleZoomOut}>- 縮小</Button>
-          <Button onClick={handleZoomIn}>+ 拡大</Button>
+        <Box>
           {(dataError || loading) && (
             <IconButton onClick={() => fetchData()} disabled={loading} color="primary">
               <ReplayIcon />
             </IconButton>
           )}
-        </ButtonGroup>
+        </Box>
       </Box>
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}><CircularProgress /></Box>
@@ -436,7 +423,7 @@ export default function OverallSchedulePage() {
             plugins={[resourceTimelinePlugin, interactionPlugin, dayGridPlugin]}
             schedulerLicenseKey="GPL-My-Project-Is-Open-Source"
             locale={jaLocale}
-            initialView={availableViews[currentViewIndex]}
+            initialView='resourceTimelineMonth'
             headerToolbar={{ left: 'prev,next today', center: 'title', right: '' }}
             editable={true}
             resources={resources}
