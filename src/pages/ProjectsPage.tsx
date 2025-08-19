@@ -61,7 +61,7 @@ export default function ProjectsPage() {
         案件一覧
       </Typography>
       <TableContainer component={Paper}>
-        <Table>
+        <Table sx={{ tableLayout: 'fixed' }}>
           <TableHead>
             <TableRow>
               <TableCell>案件名</TableCell>
@@ -77,7 +77,17 @@ export default function ProjectsPage() {
                 onClick={() => handleRowClick(project.id)} // onClickイベントを追加
                 sx={{ '&:hover': { cursor: 'pointer', backgroundColor: '#f5f5f5' } }} // ホバーエフェクトを追加
               >
-                <TableCell>{project.name}</TableCell>
+                <TableCell 
+                  sx={{ 
+                    overflow: 'hidden', 
+                    textOverflow: 'ellipsis', 
+                    whiteSpace: 'nowrap', 
+                    maxWidth: 160 // 必要に応じて幅を調整
+                  }}
+                  title={project.name || ''}
+                >
+                  {project.name}
+                </TableCell>
                 <TableCell>{project.Customers?.name}</TableCell> {/* オプショナルチェイニングを使用 */}
                 <TableCell>{project.startDate} ~ {project.endDate}</TableCell>
                 <TableCell>{project.status}</TableCell>

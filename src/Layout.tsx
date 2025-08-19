@@ -27,7 +27,12 @@ export default function Layout({ children }: LayoutProps) {
       <CssBaseline />
       <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
         <Toolbar>
-          <Typography variant="h6" noWrap component="div">
+          <Typography
+            variant="h6"
+            noWrap
+            component="div"
+            sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}
+          >
             工程管理システム
           </Typography>
         </Toolbar>
@@ -48,7 +53,7 @@ export default function Layout({ children }: LayoutProps) {
                 <ListItemIcon>
                   <DashboardIcon />
                 </ListItemIcon>
-                <ListItemText primary="ダッシュボード" />
+                <ListItemText primary="ダッシュボード" primaryTypographyProps={{ sx: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }} />
               </ListItemButton>
             </ListItem>
             {/* ★★ここからが新しいボタン★★ */}
@@ -57,7 +62,7 @@ export default function Layout({ children }: LayoutProps) {
                 <ListItemIcon>
                   <CalendarMonthIcon />
                 </ListItemIcon>
-                <ListItemText primary="工程管理" />
+                <ListItemText primary="工程管理" primaryTypographyProps={{ sx: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }} />
               </ListItemButton>
             </ListItem>
             {/* ★★ここまで★★ */}
@@ -66,7 +71,7 @@ export default function Layout({ children }: LayoutProps) {
                 <ListItemIcon>
                   <AssignmentIcon />
                 </ListItemIcon>
-                <ListItemText primary="案件一覧" />
+                <ListItemText primary="案件一覧" primaryTypographyProps={{ sx: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }} />
               </ListItemButton>
             </ListItem>
           </List>

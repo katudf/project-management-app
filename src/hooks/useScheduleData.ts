@@ -21,19 +21,16 @@ export const useScheduleData = () => {
       // 必要なデータを並行して取得
       const [
         { data: projectsData, error: projectsError },
-        { data: tasksData, error: tasksError },
         { data: workersData, error: workersError },
         { data: assignmentsData, error: assignmentsError },
       ] = await Promise.all([
         supabase.from('Projects').select('*').order('order', { ascending: true }),
-        supabase.from('ProjectTasks').select('*, ServiceMaster(name)').order('order', { ascending: true }), // ServiceMasterのnameを結合して取得
         supabase.from('Workers').select('*').order('order', { ascending: true }),
         supabase.from('Assignments').select('*').order('assignment_order', { ascending: true }),
       ]);
 
       // エラーハンドリング
       if (projectsError) throw new Error(`Projectsの取得に失敗: ${projectsError.message}`);
-      if (tasksError) throw new Error(`ProjectTasksの取得に失敗: ${tasksError.message}`);
       if (workersError) throw new Error(`Workersの取得に失敗: ${workersError.message}`);
       if (assignmentsError) throw new Error(`Assignmentsの取得に失敗: ${assignmentsError.message}`);
 
@@ -45,14 +42,6 @@ export const useScheduleData = () => {
         order: project.order,
       }));
 
-      const taskResources: Resource[] = tasksData.map(task => ({
-        id: `${RESOURCE_PREFIX.TASK}${task.id}`,
-        parentId: `${RESOURCE_PREFIX.PROJECT}${task.projectId}`,
-        group: '案件一覧',
-        title: task.ServiceMaster.name, // 結合したテーブルからnameを取得
-        order: task.order,
-      }));
-
       const workerResources: Resource[] = workersData.map(worker => ({
         id: `${RESOURCE_PREFIX.WORKER}${worker.id}`,
         group: '作業員一覧',
@@ -62,7 +51,6 @@ export const useScheduleData = () => {
 
       const allResources: Resource[] = [
         ...projectResources,
-        ...taskResources,
         ...workerResources,
       ];
       setResources(allResources);
@@ -84,42 +72,6 @@ export const useScheduleData = () => {
         };
       });
 
-      const taskEvents: CalendarEvent[] = tasksData.map(task => {
-        const project = projectsData.find(p => p.id === task.projectId);
-        if (!project) return null; // プロジェクトが見つからない場合はスキップ
-
-        const projectStartDate = new Date(project.startDate);
-        const projectEndDate = project.endDate ? new Date(project.endDate) : projectStartDate; // プロジェクト終了日がない場合は開始日を使用
-
-        let taskStart = new Date(task.startDate);
-        let taskEnd = task.endDate ? new Date(task.endDate) : taskStart; // タスク終了日がない場合は開始日を使用
-
-        // タスクの開始日をプロジェクトの開始日より前にしない
-        if (taskStart < projectStartDate) {
-          taskStart = projectStartDate;
-        }
-        // タスクの終了日をプロジェクトの終了日より後にしない
-        if (taskEnd > projectEndDate) {
-          taskEnd = projectEndDate;
-        }
-        // タスクの開始日が終了日より後になった場合、開始日を終了日に合わせる
-        if (taskStart > taskEnd) {
-          taskStart = taskEnd;
-        }
-
-        const endDate = new Date(taskEnd.getTime() + 86400000).toISOString().split('T')[0];
-
-        return {
-          id: `${RESOURCE_PREFIX.TASK_BAR}${task.id}`,
-          resourceId: `${RESOURCE_PREFIX.TASK}${task.id}`,
-          title: task.ServiceMaster.name, // 結合したテーブルからnameを取得
-          start: taskStart.toISOString().split('T')[0],
-          end: endDate,
-          className: EVENT_CLASS_NAME.TASK,
-          editable: true,
-        };
-      }).filter(Boolean) as CalendarEvent[]; // nullを除外
-
       const assignmentEvents: CalendarEvent[] = assignmentsData.map(assignment => {
         const project = projectsData.find(p => p.id == assignment.projectId);
         return {
@@ -132,7 +84,7 @@ export const useScheduleData = () => {
         };
       });
 
-      const allEvents = [...projectEvents, ...taskEvents, ...assignmentEvents];
+      const allEvents = [...projectEvents, ...assignmentEvents];
       setEvents(allEvents);
 
     } catch (e: any) {
