@@ -304,11 +304,16 @@ export default function OverallSchedulePage() {
         return orderA - orderB;
       });
 
-      if (sortedList.length > 3) {
-        limitedAssignments.push(...sortedList.slice(0, 3));
-      } else {
-        limitedAssignments.push(...sortedList);
-      }
+      const listToProcess = sortedList.length > 3 ? sortedList.slice(0, 3) : sortedList;
+      const count = listToProcess.length;
+      const heightClass = `assignment-count-${count}`;
+
+      const styledList = listToProcess.map(e => ({
+        ...e,
+        className: `${e.className || ''} ${heightClass}`.trim()
+      }));
+
+      limitedAssignments.push(...styledList);
     });
 
     return [...nonAssignmentEvents, ...limitedAssignments];
@@ -340,28 +345,21 @@ export default function OverallSchedulePage() {
       const key = `${event.getResources()[0]?.id}_${event.startStr}`;
       const count = dailyAssignmentCount.get(key) || 1;
 
-      let webkitLineClamp = 1;
       let fontSize = '10px';
 
       if (count === 1) {
-        webkitLineClamp = 4;
         fontSize = '12px';
-      } else if (count === 2) {
-        webkitLineClamp = 2;
       }
 
       return (
-          <div style={{ display: 'table', height: '100%', width: '100%' }}>
-            <div style={{ display: 'table-cell', verticalAlign: 'middle', textAlign: 'center' }}>
-              <div
-                className="assignment-event-title"
-                style={{
-                  WebkitLineClamp: webkitLineClamp,
-                  fontSize: fontSize,
-                }}
-              >
-                {title}
-              </div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', width: '100%', textAlign: 'center' }}>
+            <div
+              className="assignment-event-title"
+              style={{
+                fontSize: fontSize,
+              }}
+            >
+              {title}
             </div>
           </div>
       );
