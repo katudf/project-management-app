@@ -10,13 +10,17 @@
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "moduleDetection": "force",
-    // "noEmit": true, // <-- この行を削除、または先頭に // を付けてコメントアウト！
+    
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
+  },
+  "baseUrl": ".",
+  "paths": {
+    "@/*": ["src/*"]
   },
   "include": ["vite.config.ts"]
 }

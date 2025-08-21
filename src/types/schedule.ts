@@ -16,3 +16,26 @@ export interface CalendarEvent {
   end?: string;
   className?: string;
 }
+
+export interface ProjectData {
+  id: number;
+  name: string;
+  order: number;
+  startDate: string;
+  endDate: string;
+}
+
+export interface WorkerData {
+  id: number;
+  name: string;
+  order: number;
+}
+
+export interface AssignmentData {
+  id: number;
+  projectId: number | null;
+  workerId: number;
+  date: string;
+  title: string | null;
+  assignment_order: number;
+}

@@ -20,6 +20,10 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
+  "baseUrl": ".",
+  "paths": {
+    "@/*": ["src/*"]
+  },
   "include": ["src"]
   // もし "references" という項目があったら、それは必ず消してくれ！
 }
