@@ -1,8 +1,6 @@
 // src/pages/OverallSchedulePage.tsx
 import { useEffect, useState, useRef, useMemo } from 'react';
-import { Paper, CircularProgress, Alert, Typography, Box, Button, ButtonGroup, Snackbar, IconButton, Dialog, DialogActions, DialogContent, DialogTitle, TextField, Tooltip, Divider } from '@mui/material';
-import EditIcon from '@mui/icons-material/Edit';
-import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
+import { Paper, CircularProgress, Alert, Typography, Box, Button, Snackbar, IconButton, Dialog, DialogActions, DialogContent, DialogTitle, TextField, Tooltip } from '@mui/material';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -11,11 +9,9 @@ import FullCalendar from '@fullcalendar/react';
 import resourceTimelinePlugin from '@fullcalendar/resource-timeline';
 import interactionPlugin from '@fullcalendar/interaction';
 import dayGridPlugin from '@fullcalendar/daygrid';
-import type { EventContentArg, EventClickArg, DateMountArg } from '@fullcalendar/core';
-import type { DateClickArg } from '@fullcalendar/interaction';
+import type { EventContentArg, SlotLaneContentArg } from '@fullcalendar/core';
 import jaLocale from '@fullcalendar/core/locales/ja';
 import ReplayIcon from '@mui/icons-material/Replay';
-import { ContentCopy, ContentCut, Delete, ContentPaste } from '@mui/icons-material';
 
 import { Menu, Item, useContextMenu } from 'react-contexify';
 import 'react-contexify/dist/ReactContexify.css';
@@ -96,7 +92,7 @@ export default function OverallSchedulePage() {
     setNotification({ open: true, message, severity });
   };
 
-  const handleCloseNotification = (event?: React.SyntheticEvent | Event, reason?: string) => {
+  const handleCloseNotification = (_?: React.SyntheticEvent | Event, reason?: string) => {
     if (reason === 'clickaway') return;
     setNotification((prev) => ({ ...prev, open: false }));
   };
@@ -133,7 +129,7 @@ export default function OverallSchedulePage() {
   }
 
   const handleReorderResourcesClick = (group: 'projects' | 'workers') => {
-    setReorderableResources(resources.filter(r => r.group === group));
+    setReorderableResources(resources.filter((r: Resource) => r.group === group));
     setReorderResourceDialogOpen(true);
   };
 
@@ -177,7 +173,7 @@ export default function OverallSchedulePage() {
 
   const dailyAssignments = useMemo(() => {
     const assignmentsMap = new Map<string, CalendarEvent[]>();
-    events.filter(e => e.className === EVENT_CLASS_NAME.ASSIGNMENT).forEach((e: CalendarEvent) => {
+    events.filter((e: CalendarEvent) => e.className === EVENT_CLASS_NAME.ASSIGNMENT).forEach((e: CalendarEvent) => {
       const key = `${e.resourceId}_${e.start}`;
       if (!assignmentsMap.has(key)) {
         assignmentsMap.set(key, []);
@@ -189,7 +185,7 @@ export default function OverallSchedulePage() {
 
   const displayEvents = useMemo(() => {
     const nonAssignmentEvents = events.filter(
-      (e) => e.className !== EVENT_CLASS_NAME.ASSIGNMENT
+      (e: CalendarEvent) => e.className !== EVENT_CLASS_NAME.ASSIGNMENT
     );
 
     const limitedAssignments: CalendarEvent[] = [];
@@ -208,7 +204,7 @@ export default function OverallSchedulePage() {
       const count = listToProcess.length;
       const heightClass = `assignment-count-${count}`;
 
-      const styledList = listToProcess.map(e => ({
+      const styledList = listToProcess.map((e: CalendarEvent) => ({
         ...e,
         className: `${e.className || ''} ${heightClass}`.trim()
       }));
@@ -221,7 +217,7 @@ export default function OverallSchedulePage() {
 
   const dailyAssignmentCount = useMemo(() => {
     const countMap = new Map<string, number>();
-    displayEvents.filter(e => e.className === EVENT_CLASS_NAME.ASSIGNMENT).forEach((e: CalendarEvent) => {
+    displayEvents.filter((e: CalendarEvent) => e.className === EVENT_CLASS_NAME.ASSIGNMENT).forEach((e: CalendarEvent) => {
       const key = `${e.resourceId}_${e.start}`;
       countMap.set(key, (countMap.get(key) || 0) + 1);
     });
@@ -333,16 +329,16 @@ export default function OverallSchedulePage() {
             eventDrop={handleEventDrop}
             eventResize={handleEventResize}
             eventContent={renderEventContent}
-            slotLaneContent={(info) => {
+            slotLaneContent={(info: SlotLaneContentArg & { resource?: any }) => {
                 return <div onContextMenu={(e) => showSlotMenu({ event: e, props: { resource: info.resource, date: info.date }})} style={{position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'transparent'}}></div>
             }}
             slotLaneDidMount={(info) => {
               const classes = getDayClasses({ date: info.date, view: info.view, isPast: false, isFuture: false, isToday: false });
-              classes.forEach(cls => info.el.classList.add(cls));
+              classes.forEach((cls: string) => info.el.classList.add(cls));
             }}
             slotLabelDidMount={(info) => {
               const classes = getDayClasses({ date: info.date, view: info.view, isPast: false, isFuture: false, isToday: false });
-              classes.forEach(cls => info.el.classList.add(cls));
+              classes.forEach((cls: string) => info.el.classList.add(cls));
             }}
             slotMinWidth={60}
             resourceAreaWidth="250px"
@@ -356,11 +352,11 @@ export default function OverallSchedulePage() {
         <Item onClick={({props}) => {handleAssignmentDelete(props.event)}}>工事名削除</Item>
       </Menu>
       <Menu id={SLOT_MENU_ID}>
-        <Item onClick={({props}) => {handleBlockCopy(props.resource.id, formatDate(props.date.toISOString()))}}>ブロックコピー</Item>
-        <Item onClick={({props}) => {handleBlockCut(props.resource.id, formatDate(props.date.toISOString()))}}>ブロック切り取り</Item>
-        <Item onClick={({props}) => {handleBlockDelete(props.resource.id, formatDate(props.date.toISOString()))}}>ブロック削除</Item>
-        <Item onClick={({props}) => {setOtherAssignmentDate(formatDate(props.date.toISOString())); setOtherAssignmentResourceId(props.resource.id); setOtherAssignmentDialogOpen(true);}}>その他予定を追加</Item>
-        <Item disabled={!clipboard} onClick={({props}) => {handlePaste(props.resource.id, formatDate(props.date.toISOString()))}}>貼り付け</Item>
+        <Item onClick={({ props }) => { props?.resource && handleBlockCopy(props.resource.id, formatDate(props.date.toISOString())) }}>ブロックコピー</Item>
+        <Item onClick={({ props }) => { props?.resource && handleBlockCut(props.resource.id, formatDate(props.date.toISOString())) }}>ブロック切り取り</Item>
+        <Item onClick={({ props }) => { props?.resource && handleBlockDelete(props.resource.id, formatDate(props.date.toISOString())) }}>ブロック削除</Item>
+        <Item onClick={({ props }) => { if (props?.resource) { setOtherAssignmentDate(formatDate(props.date.toISOString())); setOtherAssignmentResourceId(props.resource.id); setOtherAssignmentDialogOpen(true); } }}>その他予定を追加</Item>
+        <Item disabled={!clipboard} onClick={({ props }) => { props?.resource && handlePaste(props.resource.id, formatDate(props.date.toISOString())) }}>貼り付け</Item>
       </Menu>
       <Snackbar open={notification.open} autoHideDuration={6000} onClose={handleCloseNotification}>
         <Alert onClose={handleCloseNotification} severity={notification.severity} sx={{ width: '100%' }} variant="filled">
