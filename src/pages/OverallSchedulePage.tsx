@@ -1,6 +1,6 @@
 // src/pages/OverallSchedulePage.tsx
 import { useEffect, useState, useRef, useMemo } from 'react';
-import { Paper, CircularProgress, Alert, Typography, Box, Button, ButtonGroup, Snackbar, IconButton, Dialog, DialogActions, DialogContent, DialogTitle, TextField, Tooltip, Menu, MenuItem, ListItemIcon, Divider } from '@mui/material';
+import { Paper, CircularProgress, Alert, Typography, Box, Button, ButtonGroup, Snackbar, IconButton, Dialog, DialogActions, DialogContent, DialogTitle, TextField, Tooltip, Divider } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
@@ -11,11 +11,14 @@ import FullCalendar from '@fullcalendar/react';
 import resourceTimelinePlugin from '@fullcalendar/resource-timeline';
 import interactionPlugin from '@fullcalendar/interaction';
 import dayGridPlugin from '@fullcalendar/daygrid';
-import type { EventContentArg, EventClickArg } from '@fullcalendar/core';
+import type { EventContentArg, EventClickArg, DateMountArg } from '@fullcalendar/core';
 import type { DateClickArg } from '@fullcalendar/interaction';
 import jaLocale from '@fullcalendar/core/locales/ja';
 import ReplayIcon from '@mui/icons-material/Replay';
 import { ContentCopy, ContentCut, Delete, ContentPaste } from '@mui/icons-material';
+
+import { Menu, Item, useContextMenu } from 'react-contexify';
+import 'react-contexify/dist/ReactContexify.css';
 
 import { useScheduleData } from '@/hooks/useScheduleData';
 import { useEventHandlers, type ClipboardData } from '@/hooks/useEventHandlers';
@@ -23,6 +26,9 @@ import { EVENT_CLASS_NAME } from '@/constants/scheduleConstants';
 import type { CalendarEvent, Resource } from '@/types/schedule';
 import { formatDate } from '@/utils/dateUtils';
 import { getDayClasses } from '@/utils/uiUtils';
+
+const EVENT_MENU_ID = 'event-menu';
+const SLOT_MENU_ID = 'slot-menu';
 
 const SortableItem = ({ id, title }: { id: string, title: string }) => {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
@@ -59,20 +65,19 @@ export default function OverallSchedulePage() {
   const [reorderResourceDialogOpen, setReorderResourceDialogOpen] = useState(false);
   const [reorderableResources, setReorderableResources] = useState<Resource[]>([]);
 
-  const [contextMenu, setContextMenu] = useState<{
-    mouseX: number;
-    mouseY: number;
-    targetEvent: CalendarEvent | null;
-    targetDate: string;
-    targetResourceId: string;
-  } | null>(null);
-
   const [clipboard, setClipboard] = useState<ClipboardData | null>(null);
 
   const [otherAssignmentDialogOpen, setOtherAssignmentDialogOpen] = useState(false);
   const [otherAssignmentTitle, setOtherAssignmentTitle] = useState('');
   const [otherAssignmentDate, setOtherAssignmentDate] = useState('');
   const [otherAssignmentResourceId, setOtherAssignmentResourceId] = useState('');
+
+  const { show: showEventMenu } = useContextMenu({
+    id: EVENT_MENU_ID,
+  });
+  const { show: showSlotMenu } = useContextMenu({
+    id: SLOT_MENU_ID,
+  });
 
   const handleDialogInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -96,38 +101,6 @@ export default function OverallSchedulePage() {
     setNotification((prev) => ({ ...prev, open: false }));
   };
     const { handleEventDrop, handleEventResize, handleEventUpdate, handleAssignmentCopy, handleAssignmentCut, handleAssignmentDelete, handleBlockCopy, handleBlockCut, handleBlockDelete, handlePaste, handleAddOtherAssignment, handleReorderAssignments, handleReorderResources } = useEventHandlers(events, setEvents, resources, showNotification, clipboard, setClipboard, fetchData);
-
-  const handleEventClick = (clickInfo: EventClickArg) => {
-    const { jsEvent, event } = clickInfo;
-    if (jsEvent.button !== 0) return; // Only handle left-clicks
-
-    if (event.id.startsWith('assign_')) {
-        jsEvent.preventDefault();
-        const targetEvent = events.find(e => e.id === event.id) || null;
-        setContextMenu({
-            mouseX: jsEvent.clientX - 2,
-            mouseY: jsEvent.clientY - 4,
-            targetEvent: targetEvent,
-            targetDate: event.startStr,
-            targetResourceId: event.getResources()[0]?.id,
-        });
-    }
-  };
-
-  const handleDateClick = (dateInfo: DateClickArg) => {
-      const { jsEvent, resource, dateStr } = dateInfo;
-      if (jsEvent.button !== 0 || !resource?.id.startsWith('work_')) {
-          return;
-      }
-      jsEvent.preventDefault();
-      setContextMenu({
-          mouseX: jsEvent.clientX - 2,
-          mouseY: jsEvent.clientY - 4,
-          targetEvent: null,
-          targetDate: dateStr,
-          targetResourceId: resource.id,
-      });
-  };
 
   const handleCloseDialog = () => {
     setEditingEvent(null);
@@ -199,79 +172,6 @@ export default function OverallSchedulePage() {
       });
     }
   }
-
-  const handleCloseContextMenu = () => {
-    setContextMenu(null);
-  };
-
-  const handleMenuClick = (action: () => void) => {
-    action();
-    handleCloseContextMenu();
-  };
-
-  const renderContextMenu = () => {
-    if (!contextMenu) return null;
-
-    const { targetEvent, targetDate, targetResourceId } = contextMenu;
-    const assignmentsOnDay = dailyAssignments.get(`${targetResourceId}_${targetDate}`) || [];
-    const hasEvent = targetEvent !== null;
-    const isSingleEventOnDay = assignmentsOnDay.length === 1;
-
-    const handleEditOrViewClick = () => {
-        if (assignmentsOnDay.length > 1) {
-            setReorderableAssignments(assignmentsOnDay);
-            setReorderDialogOpen(true);
-        } else if (targetEvent) {
-            setEditingEvent(targetEvent);
-            setEditFormData({ title: targetEvent.title, start: targetEvent.start.split('T')[0] });
-        }
-    };
-
-    const handleAddOtherClick = () => {
-        setOtherAssignmentDate(targetDate);
-        setOtherAssignmentResourceId(targetResourceId);
-        setOtherAssignmentTitle('');
-        setOtherAssignmentDialogOpen(true);
-    };
-
-    return (
-      <Menu
-        open={contextMenu !== null}
-        onClose={handleCloseContextMenu}
-        anchorReference="anchorPosition"
-        anchorPosition={contextMenu !== null ? { top: contextMenu.mouseY, left: contextMenu.mouseX } : undefined}
-      >
-        {hasEvent && [
-          <MenuItem key="edit-view" onClick={() => handleMenuClick(handleEditOrViewClick)}><ListItemIcon><EditIcon fontSize="small" /></ListItemIcon>編集/並び替え</MenuItem>,
-          <Divider key="divider-0" />
-        ]}
-        {hasEvent && isSingleEventOnDay && targetEvent && [
-          <MenuItem key="copy-single" onClick={() => handleMenuClick(() => handleAssignmentCopy(targetEvent))}><ListItemIcon><ContentCopy fontSize="small" /></ListItemIcon>工事名コピー</MenuItem>,
-          <MenuItem key="cut-single" onClick={() => handleMenuClick(() => handleAssignmentCut(targetEvent))}><ListItemIcon><ContentCut fontSize="small" /></ListItemIcon>工事名切り取り</MenuItem>,
-          <MenuItem key="delete-single" onClick={() => handleMenuClick(() => handleAssignmentDelete(targetEvent))}><ListItemIcon><Delete fontSize="small" /></ListItemIcon>工事名削除</MenuItem>,
-          <Divider key="divider-1" />
-        ]}
-        {assignmentsOnDay.length > 0 && [
-          <MenuItem key="copy-block" onClick={() => handleMenuClick(() => handleBlockCopy(targetResourceId, targetDate))}><ListItemIcon><ContentCopy fontSize="small" /></ListItemIcon>ブロックコピー</MenuItem>,
-          <MenuItem key="cut-block" onClick={() => handleMenuClick(() => handleBlockCut(targetResourceId, targetDate))}><ListItemIcon><ContentCut fontSize="small" /></ListItemIcon>ブロック切り取り</MenuItem>,
-        ]}
-        <MenuItem disabled={assignmentsOnDay.length === 0} onClick={() => handleMenuClick(() => handleBlockDelete(targetResourceId, targetDate))}><ListItemIcon><Delete fontSize="small" /></ListItemIcon>ブロック削除</MenuItem>
-        <Divider />
-        <MenuItem onClick={() => handleMenuClick(handleAddOtherClick)}><ListItemIcon><AddCircleOutlineIcon fontSize="small" /></ListItemIcon>その他予定を追加</MenuItem>
-        <MenuItem
-          disabled={!clipboard}
-          onClick={() => handleMenuClick(() => handlePaste(targetResourceId, targetDate))}
-        >
-          <ListItemIcon><ContentPaste fontSize="small" /></ListItemIcon>
-          貼り付け
-        </MenuItem>
-        <Divider />
-        <MenuItem onClick={() => handleMenuClick(() => handleReorderResourcesClick('projects'))}><ListItemIcon><EditIcon fontSize="small" /></ListItemIcon>案件一覧の並び替え</MenuItem>
-        <MenuItem onClick={() => handleMenuClick(() => handleReorderResourcesClick('workers'))}><ListItemIcon><EditIcon fontSize="small" /></ListItemIcon>作業員一覧の並び替え</MenuItem>
-      </Menu>
-    );
-  };
-
 
   const calendarRef = useRef<FullCalendar | null>(null);
 
@@ -352,7 +252,7 @@ export default function OverallSchedulePage() {
       }
 
       return (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', width: '100%', textAlign: 'center' }}>
+          <div onContextMenu={(e) => showEventMenu({ event: e, props: { event: eventInfo.event }})} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', width: '100%', textAlign: 'center' }}>
             <div
               className="assignment-event-title"
               style={{
@@ -367,7 +267,7 @@ export default function OverallSchedulePage() {
 
     return (
       <Tooltip title={tooltipContent} placement="top" arrow>
-        <div className="event-title">{eventInfo.event.title}</div>
+        <div onContextMenu={(e) => showEventMenu({ event: e, props: { event: eventInfo.event }})} className="event-title">{eventInfo.event.title}</div>
       </Tooltip>
     );
   };
@@ -433,8 +333,9 @@ export default function OverallSchedulePage() {
             eventDrop={handleEventDrop}
             eventResize={handleEventResize}
             eventContent={renderEventContent}
-            dateClick={handleDateClick}
-            eventClick={handleEventClick}
+            slotLaneContent={(info) => {
+                return <div onContextMenu={(e) => showSlotMenu({ event: e, props: { resource: info.resource, date: info.date }})} style={{position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'transparent'}}></div>
+            }}
             slotLaneDidMount={(info) => {
               const classes = getDayClasses({ date: info.date, view: info.view, isPast: false, isFuture: false, isToday: false });
               classes.forEach(cls => info.el.classList.add(cls));
@@ -449,7 +350,18 @@ export default function OverallSchedulePage() {
           />
         </Paper>
       )}
-      {renderContextMenu()}
+      <Menu id={EVENT_MENU_ID}>
+        <Item onClick={({props}) => {handleAssignmentCopy(props.event)}}>工事名コピー</Item>
+        <Item onClick={({props}) => {handleAssignmentCut(props.event)}}>工事名切り取り</Item>
+        <Item onClick={({props}) => {handleAssignmentDelete(props.event)}}>工事名削除</Item>
+      </Menu>
+      <Menu id={SLOT_MENU_ID}>
+        <Item onClick={({props}) => {handleBlockCopy(props.resource.id, formatDate(props.date.toISOString()))}}>ブロックコピー</Item>
+        <Item onClick={({props}) => {handleBlockCut(props.resource.id, formatDate(props.date.toISOString()))}}>ブロック切り取り</Item>
+        <Item onClick={({props}) => {handleBlockDelete(props.resource.id, formatDate(props.date.toISOString()))}}>ブロック削除</Item>
+        <Item onClick={({props}) => {setOtherAssignmentDate(formatDate(props.date.toISOString())); setOtherAssignmentResourceId(props.resource.id); setOtherAssignmentDialogOpen(true);}}>その他予定を追加</Item>
+        <Item disabled={!clipboard} onClick={({props}) => {handlePaste(props.resource.id, formatDate(props.date.toISOString()))}}>貼り付け</Item>
+      </Menu>
       <Snackbar open={notification.open} autoHideDuration={6000} onClose={handleCloseNotification}>
         <Alert onClose={handleCloseNotification} severity={notification.severity} sx={{ width: '100%' }} variant="filled">
           {notification.message}
