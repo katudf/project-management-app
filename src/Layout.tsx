@@ -53,7 +53,7 @@ export default function Layout({ children }: LayoutProps) {
                 <ListItemIcon>
                   <DashboardIcon />
                 </ListItemIcon>
-                <ListItemText primary="ダッシュボード" primaryTypographyProps={{ sx: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }} />
+                <ListItemText primary="テスト用データ入力" primaryTypographyProps={{ sx: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }} />
               </ListItemButton>
             </ListItem>
             {/* ★★ここからが新しいボタン★★ */}

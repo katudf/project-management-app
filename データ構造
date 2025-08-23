@@ -1,0 +1,196 @@
+## データベース構造の要約（Gemini Code Assist用）
+以下は、あなたのSupabaseプロジェクトのpublicスキーマにあるテーブルとその構造の要約です。
+
+Assignments（作業割り当て）
+
+id: 番号 (bigint)
+
+created_at: 作成日時 (timestamp with time zone)
+
+projectTaskId: プロジェクトタスクID (bigint)
+
+workerId: 作業員ID (bigint)
+
+date: 日付 (date)
+
+projectId: プロジェクトID (bigint)
+
+title: タイトル (text)
+
+assignment_order: 表示順 (bigint)
+
+Customers（顧客）
+
+id: 番号 (bigint)
+
+created_at: 作成日時 (timestamp with time zone)
+
+name: 名前 (text)
+
+address: 住所 (text)
+
+contactPerson: 担当者 (text)
+
+phone: 電話番号 (text)
+
+DailyReports（作業日報）
+
+id: 番号 (bigint)
+
+created_at: 作成日時 (timestamp with time zone)
+
+workerId: 作業員ID (bigint)
+
+date: 日付 (date)
+
+weather: 天気 (text)
+
+generalComments: コメント (text)
+
+materialsTakenOut: 持ち出し資材 (text)
+
+MaterialUsageLogs（資材使用ログ）
+
+id: 番号 (bigint)
+
+created_at: 作成日時 (timestamp with time zone)
+
+dailyReportId: 日報ID (bigint)
+
+materialId: 資材ID (bigint)
+
+quantityUsed: 使用量 (double precision)
+
+Materials（資材）
+
+id: 番号 (bigint)
+
+created_at: 作成日時 (timestamp with time zone)
+
+name: 名前 (text)
+
+category: カテゴリ (text)
+
+unit: 単位 (text)
+
+unitPrice: 単価 (bigint)
+
+colorInfo: 色情報 (text)
+
+packagingOptions: 荷姿 (jsonb)
+
+ProjectTasks（プロジェクトタスク）
+
+id: 番号 (bigint)
+
+created_at: 作成日時 (timestamp with time zone)
+
+startDate: 開始日 (date)
+
+endDate: 終了日 (date)
+
+order: 順番 (bigint)
+
+status: ステータス (text)
+
+projectId: プロジェクトID (bigint)
+
+serviceMasterId: サービスマスターID (bigint)
+
+Projects（プロジェクト）
+
+id: 番号 (bigint)
+
+created_at: 作成日時 (timestamp with time zone)
+
+name: 名前 (text)
+
+order: 順番 (bigint)
+
+startDate: 開始日 (date)
+
+endDate: 終了日 (date)
+
+estimatedAmount: 見積額 (bigint)
+
+finalAmount: 最終金額 (bigint)
+
+taxAmount: 税額 (bigint)
+
+isPaid: 支払い済みか (boolean)
+
+estimatePdfUrl: 見積書PDFのURL (text)
+
+contractPdfUrl: 契約書PDFのURL (text)
+
+status: ステータス (text)
+
+customerId: 顧客ID (bigint)
+
+display_order: 表示順 (bigint)
+
+ServiceMaster（サービスマスター）
+
+id: 番号 (bigint)
+
+created_at: 作成日時 (timestamp with time zone)
+
+name: 名前 (text)
+
+category: カテゴリ (text)
+
+defaultUnitPrice: デフォルト単価 (bigint)
+
+unit: 単位 (text)
+
+Workers（作業員）
+
+id: 番号 (bigint)
+
+created_at: 作成日時 (timestamp with time zone)
+
+name: 名前 (text)
+
+order: 順番 (bigint)
+
+birthDate: 生年月日 (date)
+
+hireDate: 入社日 (date)
+
+address: 住所 (text)
+
+contactInfo: 連絡先 (text)
+
+cpdsNumber: CPDS番号 (text)
+
+kana: フリガナ (text)
+
+WorkLogs（作業ログ）
+
+id: 番号 (bigint)
+
+created_at: 作成日時 (timestamp with time zone)
+
+dailyReportId: 日報ID (bigint)
+
+projectTaskId: プロジェクトタスクID (bigint)
+
+startTime: 開始時間 (time without time zone)
+
+endTime: 終了時間 (time without time zone)
+
+WorkerCertifications（作業員の資格）
+
+id: 番号 (bigint)
+
+created_at: 作成日時 (timestamp with time zone)
+
+workerId: 作業員ID (bigint)
+
+name: 資格名 (text)
+
+acquisitionDate: 取得日 (date)
+
+expiryDate: 有効期限 (date)
+
+(注: authやstorageなど、Supabaseが内部で使うスキーマの情報は省略しています)

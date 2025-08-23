@@ -9,7 +9,7 @@ import FullCalendar from '@fullcalendar/react';
 import resourceTimelinePlugin from '@fullcalendar/resource-timeline';
 import interactionPlugin from '@fullcalendar/interaction';
 import dayGridPlugin from '@fullcalendar/daygrid';
-import type { EventContentArg, SlotLaneContentArg } from '@fullcalendar/core';
+import type { EventContentArg, SlotLaneContentArg, EventClickArg } from '@fullcalendar/core';
 import jaLocale from '@fullcalendar/core/locales/ja';
 import ReplayIcon from '@mui/icons-material/Replay';
 
@@ -22,6 +22,8 @@ import { EVENT_CLASS_NAME } from '@/constants/scheduleConstants';
 import type { CalendarEvent, Resource } from '@/types/schedule';
 import { formatDate } from '@/utils/dateUtils';
 import { getDayClasses } from '@/utils/uiUtils';
+import { supabase } from '@/supabaseClient';
+import { SketchPicker, type ColorResult } from 'react-color';
 
 const EVENT_MENU_ID = 'event-menu';
 const SLOT_MENU_ID = 'slot-menu';
@@ -55,6 +57,13 @@ export default function OverallSchedulePage() {
     start: string;
   }>({ title: '', start: '' });
 
+  const [editingProject, setEditingProject] = useState<any | null>(null);
+  const [projectEditDialogOpen, setProjectEditDialogOpen] = useState(false);
+  const [projectEditFormData, setProjectEditFormData] = useState<{
+    name: string;
+    bar_color: string;
+  }>({ name: '', bar_color: '' });
+
   const [reorderDialogOpen, setReorderDialogOpen] = useState(false);
   const [reorderableAssignments, setReorderableAssignments] = useState<CalendarEvent[]>([]);
 
@@ -79,6 +88,16 @@ export default function OverallSchedulePage() {
     const { name, value } = e.target;
     setEditFormData(prev => ({ ...prev, [name]: value }));
   };
+
+  const handleProjectDialogInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setProjectEditFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleColorChange = (color: ColorResult) => {
+    setProjectEditFormData(prev => ({ ...prev, bar_color: color.hex }));
+  };
+
   const [notification, setNotification] = useState<{
     open: boolean;
     message: string;
@@ -103,6 +122,8 @@ export default function OverallSchedulePage() {
     setOtherAssignmentDialogOpen(false);
     setReorderDialogOpen(false);
     setReorderResourceDialogOpen(false);
+    setProjectEditDialogOpen(false);
+    setEditingProject(null);
   };
 
   const handleSave = async () => {
@@ -111,6 +132,45 @@ export default function OverallSchedulePage() {
     const success = await handleEventUpdate(updatedEvent);
     if (success) {
       handleCloseDialog();
+    }
+  };
+
+  const handleProjectUpdate = async () => {
+    if (!editingProject) return;
+    const { error } = await supabase
+      .from('Projects')
+      .update({ name: projectEditFormData.name, bar_color: projectEditFormData.bar_color })
+      .eq('id', editingProject.id);
+
+    if (error) {
+      showNotification(`プロジェクトの更新に失敗しました: ${error.message}`, 'error');
+    } else {
+      showNotification('プロジェクトを更新しました。', 'success');
+      handleCloseDialog();
+      fetchData();
+    }
+  };
+
+  const handleEventClick = async (clickInfo: EventClickArg) => {
+    const event = clickInfo.event;
+    if (event.id.startsWith('proj-main_')) {
+      const projectId = event.id.replace('proj-main_', '');
+      const { data, error } = await supabase
+        .from('Projects')
+        .select('*')
+        .eq('id', projectId)
+        .single();
+
+      if (error) {
+        showNotification(`プロジェクトの取得に失敗しました: ${error.message}`, 'error');
+        return;
+      }
+
+      if (data) {
+        setEditingProject(data);
+        setProjectEditFormData({ name: data.name, bar_color: data.bar_color || '' });
+        setProjectEditDialogOpen(true);
+      }
     }
   };
 
@@ -328,6 +388,7 @@ export default function OverallSchedulePage() {
             eventResizableFromStart={true}
             eventDrop={handleEventDrop}
             eventResize={handleEventResize}
+            eventClick={handleEventClick}
             eventContent={renderEventContent}
             slotLaneContent={(info: SlotLaneContentArg & { resource?: any }) => {
                 return <div onContextMenu={(e) => showSlotMenu({ event: e, props: { resource: info.resource, date: info.date }})} style={{position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'transparent'}}></div>
@@ -426,6 +487,31 @@ export default function OverallSchedulePage() {
         <DialogActions>
           <Button onClick={handleCloseDialog}>キャンセル</Button>
           <Button onClick={handleSave}>保存</Button>
+        </DialogActions>
+      </Dialog>
+      <Dialog open={projectEditDialogOpen} onClose={handleCloseDialog}>
+        <DialogTitle>プロジェクトの編集</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            id="name"
+            name="name"
+            label="案件名"
+            type="text"
+            fullWidth
+            variant="standard"
+            value={projectEditFormData.name}
+            onChange={handleProjectDialogInputChange}
+          />
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="body1">バーの色</Typography>
+            <SketchPicker color={projectEditFormData.bar_color} onChange={handleColorChange} />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDialog}>キャンセル</Button>
+          <Button onClick={handleProjectUpdate}>保存</Button>
         </DialogActions>
       </Dialog>
       <Dialog open={otherAssignmentDialogOpen} onClose={handleCloseDialog}>

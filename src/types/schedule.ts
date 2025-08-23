@@ -23,6 +23,7 @@ export interface ProjectData {
   order: number;
   startDate: string;
   endDate: string;
+  bar_color?: string;
 }
 
 export interface WorkerData {

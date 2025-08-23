@@ -83,6 +83,11 @@ export const useEventHandlers = (
                 editable: true,
             };
 
+            if (ourEvent.backgroundColor) {
+                newAssignmentEvent.backgroundColor = ourEvent.backgroundColor;
+                newAssignmentEvent.borderColor = ourEvent.backgroundColor;
+            }
+
             setEvents(prev => [...prev, newAssignmentEvent]);
             showNotification('人員を配置しました。', 'success');
 

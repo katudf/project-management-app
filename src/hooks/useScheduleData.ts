@@ -61,7 +61,7 @@ export const useScheduleData = () => {
         const endDate = project.endDate ? new Date(new Date(project.endDate).getTime() + 86400000).toISOString().split('T')[0] : project.startDate;
         const displayEndDate = project.endDate ? new Date(project.endDate) : new Date(project.startDate);
 
-        return {
+        const event: CalendarEvent = {
           id: `${RESOURCE_PREFIX.PROJECT_MAIN}${project.id}`,
           resourceId: `${RESOURCE_PREFIX.PROJECT}${project.id}`,
           title: `${project.name} (${formatDate(project.startDate)}～${formatDate(displayEndDate.toISOString().split('T')[0])} ${duration}日間)`,
@@ -70,11 +70,18 @@ export const useScheduleData = () => {
           className: EVENT_CLASS_NAME.PROJECT_MAIN,
           editable: true,
         };
+
+        if (project.bar_color) {
+          event.backgroundColor = project.bar_color;
+          event.borderColor = project.bar_color;
+        }
+
+        return event;
       });
 
       const assignmentEvents: CalendarEvent[] = assignmentsData.map(assignment => {
         const project = projectsData.find(p => p.id == assignment.projectId);
-        return {
+        const event: CalendarEvent = {
           id: `assign_${assignment.id}`,
           resourceId: `${RESOURCE_PREFIX.WORKER}${assignment.workerId}`,
           title: assignment.title || (project ? project.name : '不明な予定'),
@@ -82,6 +89,13 @@ export const useScheduleData = () => {
           className: EVENT_CLASS_NAME.ASSIGNMENT,
           extendedProps: { assignment_order: assignment.assignment_order },
         };
+
+        if (project && project.bar_color) {
+          event.backgroundColor = project.bar_color;
+          event.borderColor = project.bar_color;
+        }
+
+        return event;
       });
 
       const allEvents = [...projectEvents, ...assignmentEvents];
