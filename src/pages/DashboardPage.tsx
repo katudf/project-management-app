@@ -21,7 +21,7 @@ interface TabPanelProps {
 export default function DashboardPage() {
   const [value, setValue] = useState(0);
 
-  const handleChange = useCallback((event: React.SyntheticEvent, newValue: number) => {
+  const handleChange = useCallback((_: React.SyntheticEvent, newValue: number) => {
     setValue(newValue);
   }, []);
 

@@ -188,10 +188,6 @@ export default function OverallSchedulePage() {
       handleCloseDialog();
   }
 
-  const handleReorderResourcesClick = (group: 'projects' | 'workers') => {
-    setReorderableResources(resources.filter((r: Resource) => r.group === group));
-    setReorderResourceDialogOpen(true);
-  };
 
   const handleSaveResourceReorder = async () => {
     await handleReorderResources(reorderableResources);
