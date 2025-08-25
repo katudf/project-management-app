@@ -1,4 +1,4 @@
-// このファイルに、カレンダーで使う型をまとめておく
+// カレンダー関連型定義
 
 export interface Resource {
   id: string;
@@ -15,6 +15,10 @@ export interface CalendarEvent {
   start: string;
   end?: string;
   className?: string;
+  editable?: boolean;
+  backgroundColor?: string;
+  borderColor?: string;
+  extendedProps?: any;
 }
 
 export interface ProjectData {

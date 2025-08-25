@@ -18,7 +18,7 @@ export const useScheduleData = () => {
     setLoading(true);
     setError(null);
     try {
-      // 必要なデータを並行して取得
+      // 必要なデータを並列取得
       const [
         { data: projectsData, error: projectsError },
         { data: workersData, error: workersError },
@@ -29,38 +29,30 @@ export const useScheduleData = () => {
         supabase.from('Assignments').select('*').order('assignment_order', { ascending: true }),
       ]);
 
-      // エラーハンドリング
-      if (projectsError) throw new Error(`Projectsの取得に失敗: ${projectsError.message}`);
-      if (workersError) throw new Error(`Workersの取得に失敗: ${workersError.message}`);
-      if (assignmentsError) throw new Error(`Assignmentsの取得に失敗: ${assignmentsError.message}`);
+      if (projectsError) throw new Error(`Projects取得失敗: ${projectsError.message}`);
+      if (workersError) throw new Error(`Workers取得失敗: ${workersError.message}`);
+      if (assignmentsError) throw new Error(`Assignments取得失敗: ${assignmentsError.message}`);
 
-      // --- 1. カレンダーのリソースを構築 ---
+      // リソース構築
       const projectResources: Resource[] = projectsData.map(project => ({
         id: `${RESOURCE_PREFIX.PROJECT}${project.id}`,
-        group: '案件一覧',
+        group: 'projects',
         title: project.name,
         order: project.order,
       }));
-
       const workerResources: Resource[] = workersData.map(worker => ({
         id: `${RESOURCE_PREFIX.WORKER}${worker.id}`,
-        group: '作業員一覧',
+        group: 'workers',
         title: worker.name,
         order: worker.order,
       }));
+      setResources([...projectResources, ...workerResources]);
 
-      const allResources: Resource[] = [
-        ...projectResources,
-        ...workerResources,
-      ];
-      setResources(allResources);
-
-      // --- 2. カレンダーのイベントを構築 ---
+      // イベント構築
       const projectEvents: CalendarEvent[] = projectsData.map(project => {
         const duration = getDuration(project.startDate, project.endDate);
         const endDate = project.endDate ? new Date(new Date(project.endDate).getTime() + 86400000).toISOString().split('T')[0] : project.startDate;
         const displayEndDate = project.endDate ? new Date(project.endDate) : new Date(project.startDate);
-
         const event: CalendarEvent = {
           id: `${RESOURCE_PREFIX.PROJECT_MAIN}${project.id}`,
           resourceId: `${RESOURCE_PREFIX.PROJECT}${project.id}`,
@@ -70,15 +62,12 @@ export const useScheduleData = () => {
           className: EVENT_CLASS_NAME.PROJECT_MAIN,
           editable: true,
         };
-
         if (project.bar_color) {
           event.backgroundColor = project.bar_color;
           event.borderColor = project.bar_color;
         }
-
         return event;
       });
-
       const assignmentEvents: CalendarEvent[] = assignmentsData.map(assignment => {
         const project = projectsData.find(p => p.id == assignment.projectId);
         const event: CalendarEvent = {
@@ -89,20 +78,15 @@ export const useScheduleData = () => {
           className: EVENT_CLASS_NAME.ASSIGNMENT,
           extendedProps: { assignment_order: assignment.assignment_order },
         };
-
         if (project && project.bar_color) {
           event.backgroundColor = project.bar_color;
           event.borderColor = project.bar_color;
         }
-
         return event;
       });
-
-      const allEvents = [...projectEvents, ...assignmentEvents];
-      setEvents(allEvents);
-
+      setEvents([...projectEvents, ...assignmentEvents]);
     } catch (e: any) {
-      console.error("データ取得中にエラーが発生しました:", e);
+      console.error('データ取得エラー:', e);
       setError(e.message || '不明なエラーが発生しました。');
     } finally {
       setLoading(false);

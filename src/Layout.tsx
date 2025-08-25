@@ -15,11 +15,11 @@ import DashboardIcon from '@mui/icons-material/Dashboard';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'; // 新しいアイコン
 
-const drawerWidth = 240;
-
-interface LayoutProps {
+type LayoutProps = {
   children: React.ReactNode;
-}
+};
+
+const drawerWidth = 240;
 
 export default function Layout({ children }: LayoutProps) {
   return (

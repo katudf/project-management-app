@@ -1,49 +1,35 @@
 import { supabase } from '../supabaseClient';
 
-export const deleteProject = async (projectId: number) => {
-  // Get all project tasks for the project
+export const deleteProject = async (projectId: number): Promise<void> => {
+  // プロジェクトに紐づくタスク取得
   const { data: tasks, error: tasksError } = await supabase
     .from('ProjectTasks')
     .select('id')
     .eq('projectId', projectId);
-
-  if (tasksError) {
-    throw new Error(`タスクの取得中にエラーが発生しました: ${tasksError.message}`);
-  }
-
+  if (tasksError) throw new Error(`タスク取得エラー: ${tasksError.message}`);
   const taskIds = tasks.map((task) => task.id);
 
   if (taskIds.length > 0) {
-    // Delete from Assignments
+    // Assignments削除
     const { error: assignmentsError } = await supabase
       .from('Assignments')
       .delete()
       .in('projectTaskId', taskIds);
+    if (assignmentsError) throw new Error(`Assignments削除エラー: ${assignmentsError.message}`);
 
-    if (assignmentsError) {
-      throw new Error(`Assignmentsの削除中にエラーが発生しました: ${assignmentsError.message}`);
-    }
-
-    // Delete from WorkLogs
+    // WorkLogs削除
     const { error: worklogsError } = await supabase
       .from('WorkLogs')
       .delete()
       .in('projectTaskId', taskIds);
-
-    if (worklogsError) {
-      throw new Error(`WorkLogsの削除中にエラーが発生しました: ${worklogsError.message}`);
-    }
+    if (worklogsError) throw new Error(`WorkLogs削除エラー: ${worklogsError.message}`);
   }
 
-  // Then, delete from ProjectTasks
+  // ProjectTasks削除
   const { error: projectTasksError } = await supabase.from('ProjectTasks').delete().match({ projectId });
-  if (projectTasksError) {
-    throw new Error(`ProjectTasksの削除中にエラーが発生しました: ${projectTasksError.message}`);
-  }
+  if (projectTasksError) throw new Error(`ProjectTasks削除エラー: ${projectTasksError.message}`);
 
-  // Finally, delete the project
+  // Projects削除
   const { error: projectError } = await supabase.from('Projects').delete().match({ id: projectId });
-  if (projectError) {
-    throw new Error(`プロジェクトの削除中にエラーが発生しました: ${projectError.message}`);
-  }
+  if (projectError) throw new Error(`Projects削除エラー: ${projectError.message}`);
 };

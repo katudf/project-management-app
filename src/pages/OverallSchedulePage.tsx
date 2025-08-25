@@ -1,5 +1,5 @@
 // src/pages/OverallSchedulePage.tsx
-import { useEffect, useState, useRef, useMemo } from 'react';
+import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { Paper, CircularProgress, Alert, Typography, Box, Button, Snackbar, IconButton, Dialog, DialogActions, DialogContent, DialogTitle, TextField, Tooltip } from '@mui/material';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -84,19 +84,19 @@ export default function OverallSchedulePage() {
     id: SLOT_MENU_ID,
   });
 
-  const handleDialogInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleDialogInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setEditFormData(prev => ({ ...prev, [name]: value }));
-  };
+  }, []);
 
-  const handleProjectDialogInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleProjectDialogInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setProjectEditFormData(prev => ({ ...prev, [name]: value }));
-  };
+  }, []);
 
-  const handleColorChange = (color: ColorResult) => {
+  const handleColorChange = useCallback((color: ColorResult) => {
     setProjectEditFormData(prev => ({ ...prev, bar_color: color.hex }));
-  };
+  }, []);
 
   const [notification, setNotification] = useState<{
     open: boolean;
@@ -104,38 +104,38 @@ export default function OverallSchedulePage() {
     severity: 'success' | 'error' | 'info' | 'warning';
   }>({ open: false, message: '', severity: 'info' });
 
-  const showNotification = (
+  const showNotification = useCallback((
     message: string,
     severity: 'success' | 'error' | 'info' | 'warning' = 'error'
   ) => {
     setNotification({ open: true, message, severity });
-  };
+  }, []);
 
-  const handleCloseNotification = (_?: React.SyntheticEvent | Event, reason?: string) => {
+  const handleCloseNotification = useCallback((_?: React.SyntheticEvent | Event, reason?: string) => {
     if (reason === 'clickaway') return;
     setNotification((prev) => ({ ...prev, open: false }));
-  };
+  }, []);
     const { handleEventDrop, handleEventResize, handleEventUpdate, handleAssignmentCopy, handleAssignmentCut, handleAssignmentDelete, handleBlockCopy, handleBlockCut, handleBlockDelete, handlePaste, handleAddOtherAssignment, handleReorderAssignments, handleReorderResources } = useEventHandlers(events, setEvents, resources, showNotification, clipboard, setClipboard, fetchData);
 
-  const handleCloseDialog = () => {
+  const handleCloseDialog = useCallback(() => {
     setEditingEvent(null);
     setOtherAssignmentDialogOpen(false);
     setReorderDialogOpen(false);
     setReorderResourceDialogOpen(false);
     setProjectEditDialogOpen(false);
     setEditingProject(null);
-  };
+  }, []);
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     if (!editingEvent) return;
     const updatedEvent: CalendarEvent = { ...editingEvent, start: editFormData.start };
     const success = await handleEventUpdate(updatedEvent);
     if (success) {
       handleCloseDialog();
     }
-  };
+  }, [editingEvent, editFormData, handleEventUpdate, handleCloseDialog]);
 
-  const handleProjectUpdate = async () => {
+  const handleProjectUpdate = useCallback(async () => {
     if (!editingProject) return;
     const { error } = await supabase
       .from('Projects')
@@ -149,9 +149,9 @@ export default function OverallSchedulePage() {
       handleCloseDialog();
       fetchData();
     }
-  };
+  }, [editingProject, projectEditFormData, showNotification, handleCloseDialog, fetchData]);
 
-  const handleEventClick = async (clickInfo: EventClickArg) => {
+  const handleEventClick = useCallback(async (clickInfo: EventClickArg) => {
     const event = clickInfo.event;
     if (event.id.startsWith('proj-main_')) {
       const projectId = event.id.replace('proj-main_', '');
@@ -172,16 +172,16 @@ export default function OverallSchedulePage() {
         setProjectEditDialogOpen(true);
       }
     }
-  };
+  }, [showNotification]);
 
-  const handleSaveOtherAssignment = async () => {
-      if (!otherAssignmentTitle.trim()) {
-          showNotification('予定名を入力してください。', 'warning');
-          return;
-      }
-      await handleAddOtherAssignment(otherAssignmentTitle, otherAssignmentDate, otherAssignmentResourceId);
-      handleCloseDialog();
-  }
+  const handleSaveOtherAssignment = useCallback(async () => {
+    if (!otherAssignmentTitle.trim()) {
+      showNotification('予定名を入力してください。', 'warning');
+      return;
+    }
+    await handleAddOtherAssignment(otherAssignmentTitle, otherAssignmentDate, otherAssignmentResourceId);
+    handleCloseDialog();
+  }, [otherAssignmentTitle, otherAssignmentDate, otherAssignmentResourceId, handleAddOtherAssignment, showNotification, handleCloseDialog]);
 
   const handleSaveReorder = async () => {
       await handleReorderAssignments(reorderableAssignments);
@@ -394,11 +394,11 @@ export default function OverallSchedulePage() {
                 return <div onContextMenu={(e) => showSlotMenu({ event: e, props: { resource: info.resource, date: info.date }})} style={{position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'transparent'}}></div>
             }}
             slotLaneDidMount={(info) => {
-              const classes = getDayClasses({ date: info.date, view: info.view, isPast: false, isFuture: false, isToday: false });
+              const classes = getDayClasses({ date: info.date } as any);
               classes.forEach((cls: string) => info.el.classList.add(cls));
             }}
             slotLabelDidMount={(info) => {
-              const classes = getDayClasses({ date: info.date, view: info.view, isPast: false, isFuture: false, isToday: false });
+              const classes = getDayClasses({ date: info.date } as any);
               classes.forEach((cls: string) => info.el.classList.add(cls));
             }}
             slotMinWidth={60}

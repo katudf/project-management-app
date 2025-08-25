@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Box, Tabs, Tab, Typography } from '@mui/material';
+import { useState, useCallback } from 'react';
+import { Box, Tabs, Tab } from '@mui/material';
 import ProjectsForm from '../components/forms/ProjectsForm';
 import CustomersForm from '../components/forms/CustomersForm';
 import DailyReportsForm from '../components/forms/DailyReportsForm';
@@ -11,45 +11,43 @@ import WorkersForm from '../components/forms/WorkersForm';
 import WorkLogsForm from '../components/forms/WorkLogsForm';
 import WorkerCertificationsForm from '../components/forms/WorkerCertificationsForm';
 
+
 interface TabPanelProps {
   children?: React.ReactNode;
   index: number;
   value: number;
 }
 
-function TabPanel(props: TabPanelProps) {
-  const { children, value, index, ...other } = props;
-
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`simple-tabpanel-${index}`}
-      aria-labelledby={`simple-tab-${index}`}
-      {...other}
-    >
-      {value === index && (
-        <Box sx={{ p: 3 }}>
-          {children}
-        </Box>
-      )}
-    </div>
-  );
-}
-
-function a11yProps(index: number) {
-  return {
-    id: `simple-tab-${index}`,
-    'aria-controls': `simple-tabpanel-${index}`,
-  };
-}
-
 export default function DashboardPage() {
   const [value, setValue] = useState(0);
 
-  const handleChange = (event: React.SyntheticEvent, newValue: number) => {
+  const handleChange = useCallback((event: React.SyntheticEvent, newValue: number) => {
     setValue(newValue);
-  };
+  }, []);
+
+  function TabPanel(props: TabPanelProps) {
+    const { children, value, index, ...other } = props;
+    return (
+      <div
+        role="tabpanel"
+        hidden={value !== index}
+        id={`simple-tabpanel-${index}`}
+        aria-labelledby={`simple-tab-${index}`}
+        {...other}
+      >
+        {value === index && (
+          <Box sx={{ p: 3 }}>
+            {children}
+          </Box>
+        )}
+      </div>
+    );
+  }
+
+  const a11yProps = useCallback((index: number) => ({
+    id: `simple-tab-${index}`,
+    'aria-controls': `simple-tabpanel-${index}`,
+  }), []);
 
   return (
     <Box sx={{ width: '100%' }}>
@@ -100,3 +98,4 @@ export default function DashboardPage() {
     </Box>
   );
 }
+
