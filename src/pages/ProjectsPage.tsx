@@ -25,6 +25,25 @@ interface Project {
 }
 
 export default function ProjectsPage() {
+  // キャプチャフェーズで右クリックイベントを完全遮断
+  useEffect(() => {
+    const stopContextMenu = (e: Event) => {
+      e.stopPropagation();
+      e.preventDefault();
+    };
+    // TableContainer, TableRow, TableCell すべてに適用
+    const containers = document.querySelectorAll('.MuiTableContainer-root');
+    const rows = document.querySelectorAll('.MuiTableRow-root');
+    const cells = document.querySelectorAll('.MuiTableCell-root');
+    containers.forEach(el => el.addEventListener('contextmenu', stopContextMenu, true));
+    rows.forEach(el => el.addEventListener('contextmenu', stopContextMenu, true));
+    cells.forEach(el => el.addEventListener('contextmenu', stopContextMenu, true));
+    return () => {
+      containers.forEach(el => el.removeEventListener('contextmenu', stopContextMenu, true));
+      rows.forEach(el => el.removeEventListener('contextmenu', stopContextMenu, true));
+      cells.forEach(el => el.removeEventListener('contextmenu', stopContextMenu, true));
+    };
+  }, []);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate(); // useNavigateフックを呼び出す
@@ -56,11 +75,16 @@ export default function ProjectsPage() {
   }
 
   return (
-    <div>
+  <div id="projects-root">
       <Typography variant="h4" gutterBottom>
         案件一覧
       </Typography>
-      <TableContainer component={Paper}>
+      <TableContainer component={Paper}
+        onContextMenu={(e) => {
+          e.stopPropagation();
+          e.preventDefault();
+        }}
+      >
         <Table sx={{ tableLayout: 'fixed' }}>
           <TableHead>
             <TableRow>
@@ -76,21 +100,54 @@ export default function ProjectsPage() {
                 key={project.id}
                 onClick={() => handleRowClick(project.id)} // onClickイベントを追加
                 sx={{ '&:hover': { cursor: 'pointer', backgroundColor: '#f5f5f5' } }} // ホバーエフェクトを追加
+                onContextMenu={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                }}
               >
-                <TableCell 
-                  sx={{ 
-                    overflow: 'hidden', 
-                    textOverflow: 'ellipsis', 
-                    whiteSpace: 'nowrap', 
-                    maxWidth: 160 // 必要に応じて幅を調整
+                <TableCell
+                  sx={{
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    maxWidth: 160,
+                    minHeight: 32,
+                    minWidth: 80,
+                    backgroundColor: '#fff',
+                    pointerEvents: 'auto',
                   }}
                   title={project.name || ''}
+                  onContextMenu={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                  }}
                 >
                   {project.name}
                 </TableCell>
-                <TableCell>{project.Customers?.name}</TableCell> {/* オプショナルチェイニングを使用 */}
-                <TableCell>{project.startDate} ~ {project.endDate}</TableCell>
-                <TableCell>{project.status}</TableCell>
+                <TableCell
+                  onContextMenu={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                  }}
+                >
+                  {project.Customers?.name}
+                </TableCell>
+                <TableCell
+                  onContextMenu={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                  }}
+                >
+                  {project.startDate} ~ {project.endDate}
+                </TableCell>
+                <TableCell
+                  onContextMenu={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                  }}
+                >
+                  {project.status}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
