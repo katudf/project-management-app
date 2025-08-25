@@ -4,7 +4,7 @@ export interface Resource {
   id: string;
   title: string;
   group: 'projects' | 'workers';
-  order?: number;
+  display_order?: number;
   parentId?: string;
 }
 

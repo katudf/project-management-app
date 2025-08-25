@@ -24,8 +24,8 @@ export const useScheduleData = () => {
         { data: workersData, error: workersError },
         { data: assignmentsData, error: assignmentsError },
       ] = await Promise.all([
-        supabase.from('Projects').select('*').order('order', { ascending: true }),
-        supabase.from('Workers').select('*').order('order', { ascending: true }),
+        supabase.from('Projects').select('*').order('display_order', { ascending: true }),
+        supabase.from('Workers').select('*').order('display_order', { ascending: true }),
         supabase.from('Assignments').select('*').order('assignment_order', { ascending: true }),
       ]);
 
@@ -38,13 +38,13 @@ export const useScheduleData = () => {
         id: `${RESOURCE_PREFIX.PROJECT}${project.id}`,
         group: 'projects',
         title: project.name,
-        order: project.order,
+        order: project.display_order,
       }));
       const workerResources: Resource[] = workersData.map(worker => ({
         id: `${RESOURCE_PREFIX.WORKER}${worker.id}`,
         group: 'workers',
         title: worker.name,
-        order: worker.order,
+        order: worker.display_order,
       }));
       setResources([...projectResources, ...workerResources]);
 

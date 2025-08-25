@@ -50,7 +50,32 @@ const SortableItem = ({ id, title }: { id: string, title: string }) => {
 };
 
 export default function OverallSchedulePage() {
+  // ダイアログ閉じる関数（依存配列で使うため先に宣言）
+  // 依存state・関数を先に宣言
   const { resources, events, setEvents, loading, error: dataError, fetchData } = useScheduleData();
+  const [notification, setNotification] = useState<{
+    open: boolean;
+    message: string;
+    severity: 'success' | 'error' | 'info' | 'warning';
+  }>({ open: false, message: '', severity: 'info' });
+  const [clipboard, setClipboard] = useState<ClipboardData | null>(null);
+  const showNotification = useCallback((message: string, severity: 'success' | 'error' | 'info' | 'warning' = 'info') => {
+    setNotification({ open: true, message, severity });
+  }, []);
+
+  // useEventHandlersの呼び出し
+  const { handleEventDrop, handleEventResize, handleEventUpdate, handleAssignmentCopy, handleAssignmentCut, handleAssignmentDelete, handleBlockCopy, handleBlockCut, handleBlockDelete, handlePaste, handleAddOtherAssignment, handleReorderAssignments } = useEventHandlers(events, setEvents, resources, showNotification, clipboard, setClipboard, fetchData);
+
+  // useEventHandlersの直後にダイアログ閉じる関数を宣言
+  const handleCloseDialog = useCallback(() => {
+    setEditingEvent(null);
+    setOtherAssignmentDialogOpen(false);
+    setReorderDialogOpen(false);
+    setReorderResourceDialogOpen(false);
+    setProjectEditDialogOpen(false);
+    setEditingProject(null);
+  }, []);
+
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [editFormData, setEditFormData] = useState<{
     title: string;
@@ -70,12 +95,13 @@ export default function OverallSchedulePage() {
   const [reorderResourceDialogOpen, setReorderResourceDialogOpen] = useState(false);
   const [reorderableResources, setReorderableResources] = useState<Resource[]>([]);
 
-  const [clipboard, setClipboard] = useState<ClipboardData | null>(null);
 
   const [otherAssignmentDialogOpen, setOtherAssignmentDialogOpen] = useState(false);
   const [otherAssignmentTitle, setOtherAssignmentTitle] = useState('');
   const [otherAssignmentDate, setOtherAssignmentDate] = useState('');
   const [otherAssignmentResourceId, setOtherAssignmentResourceId] = useState('');
+
+  // ...existing code...
 
   const { show: showEventMenu } = useContextMenu({
     id: EVENT_MENU_ID,
@@ -83,6 +109,18 @@ export default function OverallSchedulePage() {
   const { show: showSlotMenu } = useContextMenu({
     id: SLOT_MENU_ID,
   });
+
+
+
+  // その他予定の保存処理（useEventHandlersの後に定義）
+  const handleSaveOtherAssignment = useCallback(async () => {
+    if (!otherAssignmentTitle.trim()) {
+      showNotification('予定名を入力してください。', 'warning');
+      return;
+    }
+    await handleAddOtherAssignment(otherAssignmentTitle, otherAssignmentDate, otherAssignmentResourceId);
+    handleCloseDialog();
+  }, [otherAssignmentTitle, otherAssignmentDate, otherAssignmentResourceId, handleAddOtherAssignment, showNotification, handleCloseDialog]);
 
   const handleDialogInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -98,33 +136,12 @@ export default function OverallSchedulePage() {
     setProjectEditFormData(prev => ({ ...prev, bar_color: color.hex }));
   }, []);
 
-  const [notification, setNotification] = useState<{
-    open: boolean;
-    message: string;
-    severity: 'success' | 'error' | 'info' | 'warning';
-  }>({ open: false, message: '', severity: 'info' });
-
-  const showNotification = useCallback((
-    message: string,
-    severity: 'success' | 'error' | 'info' | 'warning' = 'error'
-  ) => {
-    setNotification({ open: true, message, severity });
-  }, []);
 
   const handleCloseNotification = useCallback((_?: React.SyntheticEvent | Event, reason?: string) => {
     if (reason === 'clickaway') return;
     setNotification((prev) => ({ ...prev, open: false }));
   }, []);
-    const { handleEventDrop, handleEventResize, handleEventUpdate, handleAssignmentCopy, handleAssignmentCut, handleAssignmentDelete, handleBlockCopy, handleBlockCut, handleBlockDelete, handlePaste, handleAddOtherAssignment, handleReorderAssignments, handleReorderResources } = useEventHandlers(events, setEvents, resources, showNotification, clipboard, setClipboard, fetchData);
 
-  const handleCloseDialog = useCallback(() => {
-    setEditingEvent(null);
-    setOtherAssignmentDialogOpen(false);
-    setReorderDialogOpen(false);
-    setReorderResourceDialogOpen(false);
-    setProjectEditDialogOpen(false);
-    setEditingProject(null);
-  }, []);
 
   const handleSave = useCallback(async () => {
     if (!editingEvent) return;
@@ -144,40 +161,67 @@ export default function OverallSchedulePage() {
 
     if (error) {
       showNotification(`プロジェクトの更新に失敗しました: ${error.message}`, 'error');
-    } else {
-      showNotification('プロジェクトを更新しました。', 'success');
-      handleCloseDialog();
-      fetchData();
-    }
-  }, [editingProject, projectEditFormData, showNotification, handleCloseDialog, fetchData]);
-
-  const handleEventClick = useCallback(async (clickInfo: EventClickArg) => {
-    const event = clickInfo.event;
-    if (event.id.startsWith('proj-main_')) {
-      const projectId = event.id.replace('proj-main_', '');
-      const { data, error } = await supabase
-        .from('Projects')
-        .select('*')
-        .eq('id', projectId)
-        .single();
-
-      if (error) {
-        showNotification(`プロジェクトの取得に失敗しました: ${error.message}`, 'error');
-        return;
-      }
-
-      if (data) {
-        setEditingProject(data);
-        setProjectEditFormData({ name: data.name, bar_color: data.bar_color || '' });
-        setProjectEditDialogOpen(true);
-      }
-    }
-  }, [showNotification]);
-
-  const handleSaveOtherAssignment = useCallback(async () => {
-    if (!otherAssignmentTitle.trim()) {
-      showNotification('予定名を入力してください。', 'warning');
-      return;
+          <FullCalendar
+            ref={calendarRef}
+            key={resources.map(r => r.id).join('-')}
+            plugins={[resourceTimelinePlugin, interactionPlugin, dayGridPlugin]}
+            schedulerLicenseKey="GPL-My-Project-Is-Open-Source"
+            locale={jaLocale}
+            initialView='resourceTimelineMonth'
+            headerToolbar={{ left: 'prev,next today', center: 'title', right: '' }}
+            editable={true}
+            resources={resources}
+            resourceGroupField="group"
+            resourceOrder="group,order"
+            events={displayEvents}
+            eventOrder="extendedProps.assignment_order"
+            eventResizableFromStart={true}
+            eventDrop={handleEventDrop}
+            eventResize={handleEventResize}
+            // eventClick={handleEventClick}
+            eventContent={renderEventContent}
+            resourceAreaColumns={[{
+              field: 'title',
+              headerContent: 'Resources',
+              cellContent: (colArg) => {
+                // FullCalendar v6: colArg.resourceに本来のリソースオブジェクトが入る
+                const res = colArg.resource;
+                if (!res) return null;
+                const group = res.extendedProps?.group;
+                const isFirst = res.extendedProps?.order === 0;
+                if (isFirst && (group === 'projects' || group === 'workers')) {
+                  return (
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        sx={{ mr: 1, fontSize: '0.75rem', minWidth: 0, p: '2px 6px' }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const filtered = resources.filter(r => r.group === group);
+                          setReorderableResources(filtered);
+                          setReorderResourceDialogOpen(true);
+                        }}
+                      >{group === 'projects' ? '案件名並び替え' : '作業員名並び替え'}</Button>
+                      <span>{res.title}</span>
+                    </Box>
+                  );
+                }
+                return <span>{res.title}</span>;
+              }
+            }]} 
+            slotLaneDidMount={(info) => {
+              const classes = getDayClasses({ date: info.date } as any);
+              classes.forEach((cls: string) => info.el.classList.add(cls));
+            }}
+            slotLabelDidMount={(info) => {
+              const classes = getDayClasses({ date: info.date } as any);
+              classes.forEach((cls: string) => info.el.classList.add(cls));
+            }}
+            slotMinWidth={60}
+            resourceAreaWidth="250px"
+            dragScroll={true}
+          />
     }
     await handleAddOtherAssignment(otherAssignmentTitle, otherAssignmentDate, otherAssignmentResourceId);
     handleCloseDialog();
@@ -190,7 +234,14 @@ export default function OverallSchedulePage() {
 
 
   const handleSaveResourceReorder = async () => {
-    await handleReorderResources(reorderableResources);
+    // 並び替えた順にdisplay_orderを更新（Promise.allで並列化）
+    const updates = reorderableResources.map((resource, i) => {
+      const idNum = Number(resource.id.replace(resource.group === 'projects' ? 'proj_' : 'work_', ''));
+      const table = resource.group === 'projects' ? 'Projects' : 'Workers';
+      return supabase.from(table).update({ display_order: i }).eq('id', idNum);
+    });
+    await Promise.all(updates);
+    await fetchData();
     handleCloseDialog();
   };
 
@@ -356,7 +407,13 @@ export default function OverallSchedulePage() {
     <div>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h4" gutterBottom>全体工程管理ボード</Typography>
-        <Box>
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <Button variant="outlined" color="primary" onClick={() => {
+            setReorderableResources(resources);
+            setReorderResourceDialogOpen(true);
+          }}>
+            リソースの並び替え
+          </Button>
           {(dataError || loading) && (
             <IconButton onClick={() => fetchData()} disabled={loading} color="primary">
               <ReplayIcon />
@@ -370,6 +427,7 @@ export default function OverallSchedulePage() {
         <Paper sx={{ marginTop: 2, overflowX: 'auto' }}>
           <FullCalendar
             ref={calendarRef}
+            key={resources.map(r => r.id).join('-')}
             plugins={[resourceTimelinePlugin, interactionPlugin, dayGridPlugin]}
             schedulerLicenseKey="GPL-My-Project-Is-Open-Source"
             locale={jaLocale}
@@ -384,10 +442,32 @@ export default function OverallSchedulePage() {
             eventResizableFromStart={true}
             eventDrop={handleEventDrop}
             eventResize={handleEventResize}
-            eventClick={handleEventClick}
+            // eventClick={handleEventClick}
             eventContent={renderEventContent}
             slotLaneContent={(info: SlotLaneContentArg & { resource?: any }) => {
-                return <div onContextMenu={(e) => showSlotMenu({ event: e, props: { resource: info.resource, date: info.date }})} style={{position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'transparent'}}></div>
+              // 案件名・作業員名グループの先頭セルに並び替えボタンを表示
+              if (!info.resource) return null;
+              const group = info.resource.group;
+              // 先頭セル判定: display_orderが0のリソース
+              const isFirst = info.resource.order === 0;
+              if (isFirst && (group === 'projects' || group === 'workers')) {
+                return (
+                  <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      sx={{ mr: 1, fontSize: '0.75rem', minWidth: 0, p: '2px 6px' }}
+                      onClick={() => {
+                        const filtered = resources.filter(r => r.group === group);
+                        setReorderableResources(filtered);
+                        setReorderResourceDialogOpen(true);
+                      }}
+                    >{group === 'projects' ? '案件名並び替え' : '作業員名並び替え'}</Button>
+                  </Box>
+                );
+              }
+              // 通常セルは右クリックメニューのみ
+              return <div onContextMenu={(e) => showSlotMenu({ event: e, props: { resource: info.resource, date: info.date }})} style={{position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'transparent'}}></div>;
             }}
             slotLaneDidMount={(info) => {
               const classes = getDayClasses({ date: info.date } as any);
