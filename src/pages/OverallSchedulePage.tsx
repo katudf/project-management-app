@@ -178,38 +178,34 @@ export default function OverallSchedulePage() {
             eventResizableFromStart={true}
             eventDrop={handleEventDrop}
             eventResize={handleEventResize}
-            // eventClick={handleEventClick}
             eventContent={renderEventContent}
             resourceAreaColumns={[{
               field: 'title',
-              headerContent: 'Resources',
-              cellContent: (colArg) => {
-                // FullCalendar v6: colArg.resourceに本来のリソースオブジェクトが入る
-                const res = colArg.resource;
-                if (!res) return null;
-                const group = res.extendedProps?.group;
-                const isFirst = res.extendedProps?.order === 0;
-                if (isFirst && (group === 'projects' || group === 'workers')) {
-                  return (
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        sx={{ mr: 1, fontSize: '0.75rem', minWidth: 0, p: '2px 6px' }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const filtered = resources.filter(r => r.group === group);
-                          setReorderableResources(filtered);
-                          setReorderResourceDialogOpen(true);
-                        }}
-                      >{group === 'projects' ? '案件名並び替え' : '作業員名並び替え'}</Button>
-                      <span>{res.title}</span>
-                    </Box>
-                  );
-                }
-                return <span>{res.title}</span>;
+              headerContent: 'リソース名',
+            }]}
+            resourceGroupLabelContent={(groupInfo) => {
+              const group = groupInfo.groupValue;
+              if (group === 'projects' || group === 'workers') {
+                return (
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', pr: 1 }}>
+                    <Typography variant="subtitle2" sx={{ pl: '4px' }}>{group === 'projects' ? '案件名' : '作業員名'}</Typography>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      sx={{ fontSize: '0.75rem', minWidth: 0, p: '2px 6px' }}
+                      onClick={() => {
+                        const filtered = resources.filter(r => r.group === group);
+                        setReorderableResources(filtered);
+                        setReorderResourceDialogOpen(true);
+                      }}
+                    >
+                      並び替え
+                    </Button>
+                  </Box>
+                );
               }
-            }]} 
+              return <Typography variant="subtitle2" sx={{ pl: '4px' }}>{groupInfo.groupValue}</Typography>;
+            }}
             slotLaneDidMount={(info) => {
               const classes = getDayClasses({ date: info.date } as any);
               classes.forEach((cls: string) => info.el.classList.add(cls));
@@ -441,12 +437,7 @@ export default function OverallSchedulePage() {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h4" gutterBottom>全体工程管理ボード</Typography>
         <Box sx={{ display: 'flex', gap: 2 }}>
-          <Button variant="outlined" color="primary" onClick={() => {
-            setReorderableResources(resources);
-            setReorderResourceDialogOpen(true);
-          }}>
-            リソースの並び替え
-          </Button>
+          
           {(dataError || loading) && (
             <IconButton onClick={() => fetchData()} disabled={loading} color="primary">
               <ReplayIcon />
@@ -477,30 +468,32 @@ export default function OverallSchedulePage() {
             eventResize={handleEventResize}
             // eventClick={handleEventClick}
             eventContent={renderEventContent}
-            slotLaneContent={(info: SlotLaneContentArg & { resource?: any }) => {
-              // 案件名・作業員名グループの先頭セルに並び替えボタンを表示
-              if (!info.resource) return null;
-              const group = info.resource.group;
-              // 先頭セル判定: display_orderが0のリソース
-              const isFirst = info.resource.order === 0;
-              if (isFirst && (group === 'projects' || group === 'workers')) {
+            resourceAreaColumns={[{
+              field: 'title',
+              headerContent: 'リソース名',
+            }]}
+            resourceGroupLabelContent={(groupInfo) => {
+              const group = groupInfo.groupValue;
+              if (group === 'projects' || group === 'workers') {
                 return (
-                  <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', pr: 1 }}>
+                    <Typography variant="subtitle2" sx={{ pl: '4px' }}>{group === 'projects' ? '案件名' : '作業員名'}</Typography>
                     <Button
                       size="small"
                       variant="outlined"
-                      sx={{ mr: 1, fontSize: '0.75rem', minWidth: 0, p: '2px 6px' }}
+                      sx={{ fontSize: '0.75rem', minWidth: 0, p: '2px 6px' }}
                       onClick={() => {
                         const filtered = resources.filter(r => r.group === group);
                         setReorderableResources(filtered);
                         setReorderResourceDialogOpen(true);
                       }}
-                    >{group === 'projects' ? '案件名並び替え' : '作業員名並び替え'}</Button>
+                    >
+                      並び替え
+                    </Button>
                   </Box>
                 );
               }
-              // 通常セルは右クリックメニューのみ
-              return <div onContextMenu={(e) => showSlotMenu({ event: e, props: { resource: info.resource, date: info.date }})} style={{position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'transparent'}}></div>;
+              return <Typography variant="subtitle2" sx={{ pl: '4px' }}>{groupInfo.groupValue}</Typography>;
             }}
             slotLaneDidMount={(info) => {
               const classes = getDayClasses({ date: info.date } as any);
