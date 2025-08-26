@@ -234,15 +234,48 @@ export default function OverallSchedulePage() {
 
 
   const handleSaveResourceReorder = async () => {
-    // 並び替えた順にdisplay_orderを更新（Promise.allで並列化）
-    const updates = reorderableResources.map((resource, i) => {
-      const idNum = Number(resource.id.replace(resource.group === 'projects' ? 'proj_' : 'work_', ''));
-      const table = resource.group === 'projects' ? 'Projects' : 'Workers';
-      return supabase.from(table).update({ display_order: i }).eq('id', idNum);
-    });
-    await Promise.all(updates);
-    await fetchData();
-    handleCloseDialog();
+    try {
+      // Pass 1: Update to temporary, non-conflicting display_order values
+      const tempUpdates = reorderableResources.map((resource, i) => {
+        const idNum = Number(resource.id.replace(resource.group === 'projects' ? 'proj_' : 'work_', ''));
+        const table = resource.group === 'projects' ? 'Projects' : 'Workers';
+        // Use negative indices to avoid conflict
+        return supabase.from(table).update({ display_order: -1 * (i + 1) }).eq('id', idNum);
+      });
+      
+      const tempResults = await Promise.all(tempUpdates);
+      // Check for errors in pass 1
+      for (const result of tempResults) {
+        if (result.error) {
+          throw result.error;
+        }
+      }
+
+      // Pass 2: Update to final display_order values
+      const finalUpdates = reorderableResources.map((resource, i) => {
+        const idNum = Number(resource.id.replace(resource.group === 'projects' ? 'proj_' : 'work_', ''));
+        const table = resource.group === 'projects' ? 'Projects' : 'Workers';
+        return supabase.from(table).update({ display_order: i }).eq('id', idNum);
+      });
+
+      const finalResults = await Promise.all(finalUpdates);
+      // Check for errors in pass 2
+      for (const result of finalResults) {
+        if (result.error) {
+          throw result.error;
+        }
+      }
+
+      await fetchData();
+      handleCloseDialog();
+      showNotification('表示順を更新しました。', 'success');
+
+    } catch (error: any) {
+      console.error('Error updating display_order:', error);
+      showNotification(`表示順の更新中にエラーが発生しました: ${error.message}`, 'error');
+      // Optionally, refetch data to revert optimistic UI changes
+      await fetchData();
+    }
   };
 
   const sensors = useSensors(
