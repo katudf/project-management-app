@@ -200,7 +200,7 @@ export const useEventHandlers = (
 
     // --- 3. Assignment move/copy (block-aware) ---
     if (event.classNames.includes(EVENT_CLASS_NAME.ASSIGNMENT)) {
-      const isCopy = arg.jsEvent.ctrlKey;
+      const isCopy = arg.jsEvent.altKey;
 
       // Find the dragged event in our original state to get accurate old position
       const draggedCalendarEvent = originalEvents.find((e: CalendarEvent) => e.id === oldEvent.id);
@@ -269,12 +269,19 @@ export const useEventHandlers = (
 
           const newAssignmentsToInsert = eventsInBlock.map((e: CalendarEvent) => {
             const project = resources.find((r: Resource) => r.title === e.title && r.group === 'projects');
-            return {
-              projectId: project ? Number(project.id.replace(RESOURCE_PREFIX.PROJECT_MAIN, '')) : null,
-              workerId: newWorkerId,
-              date: newDate,
-              title: !project ? e.title : null, // Copy title for non-project assignments
-            };
+            if (project) {
+              return {
+                projectId: Number(project.id.replace(RESOURCE_PREFIX.PROJECT, '')),
+                workerId: newWorkerId,
+                date: newDate,
+              };
+            } else {
+              return {
+                workerId: newWorkerId,
+                date: newDate,
+                title: e.title,
+              };
+            }
           });
 
           const { data: insertedData, error: insertError } = await supabase
@@ -284,15 +291,23 @@ export const useEventHandlers = (
 
           if (insertError) throw insertError;
 
-          const newEvents: CalendarEvent[] = insertedData.map((a: any, index: number) => ({
-            id: `assign_${a.id}`,
-            resourceId: `work_${a.workerId}`,
-            title: eventsInBlock[index].title, // Keep original title
-            start: a.date,
-            end: a.date,
-            className: EVENT_CLASS_NAME.ASSIGNMENT,
-            editable: true,
-          }));
+          const newEvents: CalendarEvent[] = insertedData.map((a: any, index: number) => {
+            const originalEvent = eventsInBlock[index];
+            const newEvent: CalendarEvent = {
+              id: `assign_${a.id}`,
+              resourceId: `work_${a.workerId}`,
+              title: originalEvent.title,
+              start: a.date,
+              end: a.date,
+              className: EVENT_CLASS_NAME.ASSIGNMENT,
+              editable: true,
+            };
+            if (originalEvent.backgroundColor) {
+              newEvent.backgroundColor = originalEvent.backgroundColor;
+              newEvent.borderColor = originalEvent.borderColor;
+            }
+            return newEvent;
+          });
 
           setEvents(prev => [...prev, ...newEvents]);
           showNotification('ブロックをコピーしました。', 'success');

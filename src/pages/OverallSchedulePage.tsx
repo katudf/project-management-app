@@ -161,63 +161,6 @@ export default function OverallSchedulePage() {
 
     if (error) {
       showNotification(`プロジェクトの更新に失敗しました: ${error.message}`, 'error');
-          <FullCalendar
-            ref={calendarRef}
-            key={resources.map(r => r.id).join('-')}
-            plugins={[resourceTimelinePlugin, interactionPlugin, dayGridPlugin]}
-            schedulerLicenseKey="GPL-My-Project-Is-Open-Source"
-            locale={jaLocale}
-            initialView='resourceTimelineMonth'
-            headerToolbar={{ left: 'prev,next today', center: 'title', right: '' }}
-            editable={true}
-            resources={resources}
-            resourceGroupField="group"
-            resourceOrder="group,order"
-            events={displayEvents}
-            eventOrder="extendedProps.assignment_order"
-            eventResizableFromStart={true}
-            eventDrop={handleEventDrop}
-            eventResize={handleEventResize}
-            eventContent={renderEventContent}
-            resourceAreaColumns={[{
-              field: 'title',
-              headerContent: 'リソース名',
-            }]}
-            resourceGroupLabelContent={(groupInfo) => {
-              const group = groupInfo.groupValue;
-              if (group === 'projects' || group === 'workers') {
-                return (
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', pr: 1 }}>
-                    <Typography variant="subtitle2" sx={{ pl: '4px' }}>{group === 'projects' ? '案件名' : '作業員名'}</Typography>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      sx={{ fontSize: '0.75rem', minWidth: 0, p: '2px 6px' }}
-                      onClick={() => {
-                        const filtered = resources.filter(r => r.group === group);
-                        setReorderableResources(filtered);
-                        setReorderResourceDialogOpen(true);
-                      }}
-                    >
-                      並び替え
-                    </Button>
-                  </Box>
-                );
-              }
-              return <Typography variant="subtitle2" sx={{ pl: '4px' }}>{groupInfo.groupValue}</Typography>;
-            }}
-            slotLaneDidMount={(info) => {
-              const classes = getDayClasses({ date: info.date } as any);
-              classes.forEach((cls: string) => info.el.classList.add(cls));
-            }}
-            slotLabelDidMount={(info) => {
-              const classes = getDayClasses({ date: info.date } as any);
-              classes.forEach((cls: string) => info.el.classList.add(cls));
-            }}
-            slotMinWidth={60}
-            resourceAreaWidth="250px"
-            dragScroll={true}
-          />
     }
     await handleAddOtherAssignment(otherAssignmentTitle, otherAssignmentDate, otherAssignmentResourceId);
     handleCloseDialog();
@@ -494,6 +437,9 @@ export default function OverallSchedulePage() {
                 );
               }
               return <Typography variant="subtitle2" sx={{ pl: '4px' }}>{groupInfo.groupValue}</Typography>;
+            }}
+            slotLaneContent={(info: SlotLaneContentArg & { resource?: any }) => {
+              return <div onContextMenu={(e) => showSlotMenu({ event: e, props: { resource: info.resource, date: info.date }})} style={{position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'transparent'}}></div>;
             }}
             slotLaneDidMount={(info) => {
               const classes = getDayClasses({ date: info.date } as any);
