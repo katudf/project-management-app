@@ -498,6 +498,42 @@ export default function OverallSchedulePage() {
         >
           その他予定を追加
         </Item>
+        <Item
+          hidden={({ props }) => {
+            if (!props.event) return true;
+            const resourceId = props.event.getResources()[0]?.id;
+            // 作業員のイベントでない場合は非表示
+            return !resourceId || !resourceId.startsWith('work_');
+          }}
+          onClick={({ props }) => {
+            if (!props.event) return;
+            const targetEvent = props.event;
+            const resourceId = targetEvent.getResources()[0]?.id;
+            const date = targetEvent.startStr;
+
+            if (!resourceId || !date) return;
+
+            const assignmentsOnDay = events.filter(e => 
+                e.start === date && 
+                e.resourceId === resourceId &&
+                e.className === EVENT_CLASS_NAME.ASSIGNMENT
+            );
+            
+            if (assignmentsOnDay.length > 1) {
+                const sortedAssignments = [...assignmentsOnDay].sort((a, b) => {
+                    const orderA = a.extendedProps?.assignment_order ?? 0;
+                    const orderB = b.extendedProps?.assignment_order ?? 0;
+                    return orderA - orderB;
+                });
+                setReorderableAssignments(sortedAssignments);
+                setReorderDialogOpen(true);
+            } else {
+                showNotification('この日の並び替え対象の作業は1件のみです。', 'info');
+            }
+          }}
+        >
+          この日の作業順を並び替え
+        </Item>
       </Menu>
       <Menu id={SLOT_MENU_ID}>
         <Item onClick={({ props }) => { props?.resource && handleBlockCopy(props.resource.id, formatDate(props.date.toISOString())) }}>ブロックコピー</Item>
