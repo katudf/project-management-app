@@ -599,7 +599,11 @@ export const useEventHandlers = (
     }
   };
 
-  const handleAddOtherAssignment = async (title: string, date: string, resourceId: string) => {
+  const handleAddOtherAssignment = async (title: string, date: string, resourceId: string): Promise<boolean> => {
+    if (!resourceId.startsWith(RESOURCE_PREFIX.WORKER)) {
+        showNotification('「その他予定の追加」は作業員の行でのみ可能です。', 'warning');
+        return false;
+    }
     const workerId = Number(resourceId.replace(RESOURCE_PREFIX.WORKER, ''));
 
     try {
@@ -620,8 +624,10 @@ export const useEventHandlers = (
         };
         setEvents(prev => [...prev, newEvent]);
         showNotification('予定を追加しました。', 'success');
+        return true;
     } catch (error) {
         showNotification('予定の追加に失敗しました。', 'error');
+        return false;
     }
   };
 

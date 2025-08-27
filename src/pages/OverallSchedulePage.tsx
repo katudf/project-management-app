@@ -18,7 +18,7 @@ import 'react-contexify/dist/ReactContexify.css';
 
 import { useScheduleData } from '@/hooks/useScheduleData';
 import { useEventHandlers, type ClipboardData } from '@/hooks/useEventHandlers';
-import { EVENT_CLASS_NAME } from '@/constants/scheduleConstants';
+import { EVENT_CLASS_NAME, RESOURCE_PREFIX } from '@/constants/scheduleConstants';
 import type { CalendarEvent, Resource } from '@/types/schedule';
 import { formatDate } from '@/utils/dateUtils';
 import { getDayClasses } from '@/utils/uiUtils';
@@ -118,8 +118,11 @@ export default function OverallSchedulePage() {
       showNotification('予定名を入力してください。', 'warning');
       return;
     }
-    await handleAddOtherAssignment(otherAssignmentTitle, otherAssignmentDate, otherAssignmentResourceId);
-    handleCloseDialog();
+    const success = await handleAddOtherAssignment(otherAssignmentTitle, otherAssignmentDate, otherAssignmentResourceId);
+    if (success) {
+      setOtherAssignmentTitle(''); // Clear the title on success
+      handleCloseDialog();
+    }
   }, [otherAssignmentTitle, otherAssignmentDate, otherAssignmentResourceId, handleAddOtherAssignment, showNotification, handleCloseDialog]);
 
   const handleDialogInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -347,6 +350,8 @@ export default function OverallSchedulePage() {
     );
   };
 
+  
+
   useEffect(() => {
     if (!loading && calendarRef.current) {
       calendarRef.current.getApi().gotoDate(new Date());
@@ -438,9 +443,6 @@ export default function OverallSchedulePage() {
               }
               return <Typography variant="subtitle2" sx={{ pl: '4px' }}>{groupInfo.groupValue}</Typography>;
             }}
-            slotLaneContent={(info: SlotLaneContentArg & { resource?: any }) => {
-              return <div onContextMenu={(e) => showSlotMenu({ event: e, props: { resource: info.resource, date: info.date }})} style={{position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'transparent'}}></div>;
-            }}
             slotLaneDidMount={(info) => {
               const classes = getDayClasses({ date: info.date } as any);
               classes.forEach((cls: string) => info.el.classList.add(cls));
@@ -459,13 +461,61 @@ export default function OverallSchedulePage() {
         <Item onClick={({props}) => {handleAssignmentCopy(props.event)}}>工事名コピー</Item>
         <Item onClick={({props}) => {handleAssignmentCut(props.event)}}>工事名切り取り</Item>
         <Item onClick={({props}) => {handleAssignmentDelete(props.event)}}>工事名削除</Item>
+        <Item
+          disabled={!clipboard}
+          onClick={({ props }) => {
+            if (!props.event) return;
+            const targetEvent = props.event;
+            const resourceId = targetEvent.getResources()[0]?.id;
+            const date = targetEvent.startStr;
+            if (resourceId && date) {
+              handlePaste(resourceId, date);
+            } else {
+              console.error("Paste failed: could not determine resourceId or date from event.", targetEvent);
+            }
+          }}
+        >
+          工事名の貼付け
+        </Item>
+        <Item
+          hidden={({ props }) => {
+            if (!props.event) return true;
+            const resourceId = props.event.getResources()[0]?.id;
+            return !resourceId || !resourceId.startsWith('work_');
+          }}
+          onClick={({ props }) => {
+            if (!props.event) return;
+            const targetEvent = props.event;
+            const resourceId = targetEvent.getResources()[0]?.id;
+            const date = targetEvent.startStr;
+            
+            if (resourceId && date) {
+              setOtherAssignmentDate(date);
+              setOtherAssignmentResourceId(resourceId);
+              setOtherAssignmentDialogOpen(true);
+            }
+          }}
+        >
+          その他予定を追加
+        </Item>
       </Menu>
       <Menu id={SLOT_MENU_ID}>
         <Item onClick={({ props }) => { props?.resource && handleBlockCopy(props.resource.id, formatDate(props.date.toISOString())) }}>ブロックコピー</Item>
         <Item onClick={({ props }) => { props?.resource && handleBlockCut(props.resource.id, formatDate(props.date.toISOString())) }}>ブロック切り取り</Item>
         <Item onClick={({ props }) => { props?.resource && handleBlockDelete(props.resource.id, formatDate(props.date.toISOString())) }}>ブロック削除</Item>
-        <Item onClick={({ props }) => { if (props?.resource) { setOtherAssignmentDate(formatDate(props.date.toISOString())); setOtherAssignmentResourceId(props.resource.id); setOtherAssignmentDialogOpen(true); } }}>その他予定を追加</Item>
-        <Item disabled={!clipboard} onClick={({ props }) => { props?.resource && handlePaste(props.resource.id, formatDate(props.date.toISOString())) }}>貼り付け</Item>
+        <Item
+          hidden={({ props }) => !props?.resource?.id.startsWith('work_')}
+          onClick={({ props }) => {
+            if (props?.resource) {
+              setOtherAssignmentDate(formatDate(props.date.toISOString()));
+              setOtherAssignmentResourceId(props.resource.id);
+              setOtherAssignmentDialogOpen(true);
+            }
+          }}
+        >
+          その他予定を追加
+        </Item>
+        <Item disabled={!clipboard} onClick={({ props }) => { props?.resource && handlePaste(props.resource.id, formatDate(props.date.toISOString())) }}>工事名の貼付け</Item>
       </Menu>
       <Snackbar open={notification.open} autoHideDuration={6000} onClose={handleCloseNotification}>
         <Alert onClose={handleCloseNotification} severity={notification.severity} sx={{ width: '100%' }} variant="filled">
