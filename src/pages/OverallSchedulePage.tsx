@@ -9,11 +9,11 @@ import FullCalendar from '@fullcalendar/react';
 import resourceTimelinePlugin from '@fullcalendar/resource-timeline';
 import interactionPlugin from '@fullcalendar/interaction';
 import dayGridPlugin from '@fullcalendar/daygrid';
-import type { EventContentArg, SlotLaneContentArg, EventClickArg } from '@fullcalendar/core';
+import type { EventContentArg, EventMountArg } from '@fullcalendar/core';
 import jaLocale from '@fullcalendar/core/locales/ja';
 import ReplayIcon from '@mui/icons-material/Replay';
 
-import { Menu, Item, useContextMenu } from 'react-contexify';
+import { Menu, Item, useContextMenu, type ItemParams } from 'react-contexify';
 import 'react-contexify/dist/ReactContexify.css';
 
 import { useScheduleData } from '@/hooks/useScheduleData';
@@ -25,8 +25,7 @@ import { getDayClasses } from '@/utils/uiUtils';
 import { supabase } from '@/supabaseClient';
 import { SketchPicker, type ColorResult } from 'react-color';
 
-const EVENT_MENU_ID = 'event-menu';
-const SLOT_MENU_ID = 'slot-menu';
+const CONTEXT_MENU_ID = 'context-menu';
 
 const SortableItem = ({ id, title }: { id: string, title: string }) => {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
@@ -50,23 +49,15 @@ const SortableItem = ({ id, title }: { id: string, title: string }) => {
 };
 
 export default function OverallSchedulePage() {
-  // ダイアログ閉じる関数（依存配列で使うため先に宣言）
-  // 依存state・関数を先に宣言
   const { resources, events, setEvents, loading, error: dataError, fetchData } = useScheduleData();
-  const [notification, setNotification] = useState<{
-    open: boolean;
-    message: string;
-    severity: 'success' | 'error' | 'info' | 'warning';
-  }>({ open: false, message: '', severity: 'info' });
+  const [notification, setNotification] = useState<{ open: boolean; message: string; severity: 'success' | 'error' | 'info' | 'warning'; }>({ open: false, message: '', severity: 'info' });
   const [clipboard, setClipboard] = useState<ClipboardData | null>(null);
   const showNotification = useCallback((message: string, severity: 'success' | 'error' | 'info' | 'warning' = 'info') => {
     setNotification({ open: true, message, severity });
   }, []);
 
-  // useEventHandlersの呼び出し
   const { handleEventDrop, handleEventResize, handleEventUpdate, handleAssignmentCopy, handleAssignmentCut, handleAssignmentDelete, handleBlockCopy, handleBlockCut, handleBlockDelete, handlePaste, handleAddOtherAssignment, handleReorderAssignments } = useEventHandlers(events, setEvents, resources, showNotification, clipboard, setClipboard, fetchData);
 
-  // useEventHandlersの直後にダイアログ閉じる関数を宣言
   const handleCloseDialog = useCallback(() => {
     setEditingEvent(null);
     setOtherAssignmentDialogOpen(false);
@@ -77,17 +68,11 @@ export default function OverallSchedulePage() {
   }, []);
 
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
-  const [editFormData, setEditFormData] = useState<{
-    title: string;
-    start: string;
-  }>({ title: '', start: '' });
+  const [editFormData, setEditFormData] = useState<{ title: string; start: string; }>({ title: '', start: '' });
 
   const [editingProject, setEditingProject] = useState<any | null>(null);
   const [projectEditDialogOpen, setProjectEditDialogOpen] = useState(false);
-  const [projectEditFormData, setProjectEditFormData] = useState<{
-    name: string;
-    bar_color: string;
-  }>({ name: '', bar_color: '' });
+  const [projectEditFormData, setProjectEditFormData] = useState<{ name: string; bar_color: string; }>({ name: '', bar_color: '' });
 
   const [reorderDialogOpen, setReorderDialogOpen] = useState(false);
   const [reorderableAssignments, setReorderableAssignments] = useState<CalendarEvent[]>([]);
@@ -95,24 +80,15 @@ export default function OverallSchedulePage() {
   const [reorderResourceDialogOpen, setReorderResourceDialogOpen] = useState(false);
   const [reorderableResources, setReorderableResources] = useState<Resource[]>([]);
 
-
   const [otherAssignmentDialogOpen, setOtherAssignmentDialogOpen] = useState(false);
   const [otherAssignmentTitle, setOtherAssignmentTitle] = useState('');
   const [otherAssignmentDate, setOtherAssignmentDate] = useState('');
   const [otherAssignmentResourceId, setOtherAssignmentResourceId] = useState('');
 
-  // ...existing code...
+  const [dummyEvents, setDummyEvents] = useState<CalendarEvent[]>([]);
 
-  const { show: showEventMenu } = useContextMenu({
-    id: EVENT_MENU_ID,
-  });
-  const { show: showSlotMenu } = useContextMenu({
-    id: SLOT_MENU_ID,
-  });
+  const { show } = useContextMenu({ id: CONTEXT_MENU_ID });
 
-
-
-  // その他予定の保存処理（useEventHandlersの後に定義）
   const handleSaveOtherAssignment = useCallback(async () => {
     if (!otherAssignmentTitle.trim()) {
       showNotification('予定名を入力してください。', 'warning');
@@ -120,7 +96,7 @@ export default function OverallSchedulePage() {
     }
     const success = await handleAddOtherAssignment(otherAssignmentTitle, otherAssignmentDate, otherAssignmentResourceId);
     if (success) {
-      setOtherAssignmentTitle(''); // Clear the title on success
+      setOtherAssignmentTitle('');
       handleCloseDialog();
     }
   }, [otherAssignmentTitle, otherAssignmentDate, otherAssignmentResourceId, handleAddOtherAssignment, showNotification, handleCloseDialog]);
@@ -139,12 +115,10 @@ export default function OverallSchedulePage() {
     setProjectEditFormData(prev => ({ ...prev, bar_color: color.hex }));
   }, []);
 
-
   const handleCloseNotification = useCallback((_?: React.SyntheticEvent | Event, reason?: string) => {
     if (reason === 'clickaway') return;
     setNotification((prev) => ({ ...prev, open: false }));
   }, []);
-
 
   const handleSave = useCallback(async () => {
     if (!editingEvent) return;
@@ -157,11 +131,7 @@ export default function OverallSchedulePage() {
 
   const handleProjectUpdate = useCallback(async () => {
     if (!editingProject) return;
-    const { error } = await supabase
-      .from('Projects')
-      .update({ name: projectEditFormData.name, bar_color: projectEditFormData.bar_color })
-      .eq('id', editingProject.id);
-
+    const { error } = await supabase.from('Projects').update({ name: projectEditFormData.name, bar_color: projectEditFormData.bar_color }).eq('id', editingProject.id);
     if (error) {
       showNotification(`プロジェクトの更新に失敗しました: ${error.message}`, 'error');
     }
@@ -174,62 +144,40 @@ export default function OverallSchedulePage() {
       handleCloseDialog();
   }
 
-
   const handleSaveResourceReorder = async () => {
     try {
-      // Pass 1: Update to temporary, non-conflicting display_order values
       const tempUpdates = reorderableResources.map((resource, i) => {
         const idNum = Number(resource.id.replace(resource.group === 'projects' ? 'proj_' : 'work_', ''));
         const table = resource.group === 'projects' ? 'Projects' : 'Workers';
-        // Use negative indices to avoid conflict
         return supabase.from(table).update({ display_order: -1 * (i + 1) }).eq('id', idNum);
       });
-      
       const tempResults = await Promise.all(tempUpdates);
-      // Check for errors in pass 1
       for (const result of tempResults) {
-        if (result.error) {
-          throw result.error;
-        }
+        if (result.error) throw result.error;
       }
-
-      // Pass 2: Update to final display_order values
       const finalUpdates = reorderableResources.map((resource, i) => {
         const idNum = Number(resource.id.replace(resource.group === 'projects' ? 'proj_' : 'work_', ''));
         const table = resource.group === 'projects' ? 'Projects' : 'Workers';
         return supabase.from(table).update({ display_order: i }).eq('id', idNum);
       });
-
       const finalResults = await Promise.all(finalUpdates);
-      // Check for errors in pass 2
       for (const result of finalResults) {
-        if (result.error) {
-          throw result.error;
-        }
+        if (result.error) throw result.error;
       }
-
       await fetchData();
       handleCloseDialog();
       showNotification('表示順を更新しました。', 'success');
-
     } catch (error: any) {
       console.error('Error updating display_order:', error);
       showNotification(`表示順の更新中にエラーが発生しました: ${error.message}`, 'error');
-      // Optionally, refetch data to revert optimistic UI changes
       await fetchData();
     }
   };
 
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
+  const sensors = useSensors(useSensor(PointerSensor), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
 
   function handleDragEnd(event: DragEndEvent) {
     const {active, over} = event;
-    
     if (over && active.id !== over.id) {
       setReorderableAssignments((items) => {
         const oldIndex = items.findIndex(item => item.id === active.id);
@@ -241,7 +189,6 @@ export default function OverallSchedulePage() {
 
   function handleResourceDragEnd(event: DragEndEvent) {
     const {active, over} = event;
-
     if (over && active.id !== over.id) {
       setReorderableResources((items) => {
         const oldIndex = items.findIndex(item => item.id === active.id);
@@ -253,104 +200,85 @@ export default function OverallSchedulePage() {
 
   const calendarRef = useRef<FullCalendar | null>(null);
 
-  const dailyAssignments = useMemo(() => {
+  useEffect(() => {
+    if (calendarRef.current && !loading) {
+      const calendarApi = calendarRef.current.getApi();
+      const view = calendarApi.view;
+      const workerResources = resources.filter(r => r.id.startsWith(RESOURCE_PREFIX.WORKER));
+      const newDummyEvents: CalendarEvent[] = [];
+
+      for (let d = new Date(view.activeStart); d <= view.activeEnd; d.setDate(d.getDate() + 1)) {
+        const dateStr = d.toISOString().split('T')[0];
+        workerResources.forEach(worker => {
+          const hasEvent = events.some(e => e.resourceId === worker.id && e.start === dateStr && !e.extendedProps?.isDummy);
+          if (!hasEvent) {
+            newDummyEvents.push({
+              id: `dummy_${worker.id}_${dateStr}`,
+              resourceId: worker.id,
+              start: dateStr,
+              end: dateStr,
+              display: 'background',
+              extendedProps: { isDummy: true, resource: worker, date: new Date(dateStr) }
+            });
+          }
+        });
+      }
+      setDummyEvents(newDummyEvents);
+    }
+  }, [events, resources, loading]);
+
+  const displayEvents = useMemo(() => {
+    const realEvents = events.filter(e => !e.extendedProps?.isDummy);
     const assignmentsMap = new Map<string, CalendarEvent[]>();
-    events.filter((e: CalendarEvent) => e.className === EVENT_CLASS_NAME.ASSIGNMENT).forEach((e: CalendarEvent) => {
+    realEvents.filter(e => e.className === EVENT_CLASS_NAME.ASSIGNMENT).forEach(e => {
       const key = `${e.resourceId}_${e.start}`;
       if (!assignmentsMap.has(key)) {
         assignmentsMap.set(key, []);
       }
       assignmentsMap.get(key)!.push(e);
     });
-    return assignmentsMap;
-  }, [events]);
 
-  const displayEvents = useMemo(() => {
-    const nonAssignmentEvents = events.filter(
-      (e: CalendarEvent) => e.className !== EVENT_CLASS_NAME.ASSIGNMENT
-    );
-
+    const nonAssignmentEvents = realEvents.filter(e => e.className !== EVENT_CLASS_NAME.ASSIGNMENT);
     const limitedAssignments: CalendarEvent[] = [];
-    dailyAssignments.forEach((eventList) => {
-      const sortedList = [...eventList].sort((a, b) => {
-        const orderA = a.extendedProps?.assignment_order;
-        const orderB = b.extendedProps?.assignment_order;
-
-        if (orderA === null || orderA === undefined) return 1;
-        if (orderB === null || orderB === undefined) return -1;
-
-        return orderA - orderB;
-      });
-
+    assignmentsMap.forEach((eventList) => {
+      const sortedList = [...eventList].sort((a, b) => (a.extendedProps?.assignment_order ?? 0) - (b.extendedProps?.assignment_order ?? 0));
       const listToProcess = sortedList.length > 3 ? sortedList.slice(0, 3) : sortedList;
       const count = listToProcess.length;
       const heightClass = `assignment-count-${count}`;
-
-      const styledList = listToProcess.map((e: CalendarEvent) => ({
-        ...e,
-        className: `${e.className || ''} ${heightClass}`.trim()
-      }));
-
+      const styledList = listToProcess.map(e => ({ ...e, className: `${e.className || ''} ${heightClass}`.trim() }));
       limitedAssignments.push(...styledList);
     });
 
-    return [...nonAssignmentEvents, ...limitedAssignments];
-  }, [events, dailyAssignments]);
-
-  const dailyAssignmentCount = useMemo(() => {
-    const countMap = new Map<string, number>();
-    displayEvents.filter((e: CalendarEvent) => e.className === EVENT_CLASS_NAME.ASSIGNMENT).forEach((e: CalendarEvent) => {
-      const key = `${e.resourceId}_${e.start}`;
-      countMap.set(key, (countMap.get(key) || 0) + 1);
-    });
-    return countMap;
-  }, [displayEvents]);
+    return [...nonAssignmentEvents, ...limitedAssignments, ...dummyEvents];
+  }, [events, dummyEvents]);
 
   const renderEventContent = (eventInfo: EventContentArg) => {
+    if (eventInfo.event.extendedProps.isDummy) return true;
     const { event } = eventInfo;
     const title = event.title;
-    const start = formatDate(event.startStr);
-    const end = event.end ? formatDate(new Date(event.end.getTime() - 86400000).toISOString()) : start;
-
-    const tooltipContent = (
-      <Box sx={{ p: 1 }}>
-        <Typography variant="subtitle2" gutterBottom>{title.split(' (')[0]}</Typography>
-        <Typography variant="body2">期間: {start} ~ {end}</Typography>
-      </Box>
-    );
-
-    if (event.classNames.includes(EVENT_CLASS_NAME.ASSIGNMENT)) {
-      const key = `${event.getResources()[0]?.id}_${event.startStr}`;
-      const count = dailyAssignmentCount.get(key) || 1;
-
-      let fontSize = '10px';
-
-      if (count === 1) {
-        fontSize = '12px';
-      }
-
-      return (
-          <div onContextMenu={(e) => showEventMenu({ event: e, props: { event: eventInfo.event }})} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', width: '100%', textAlign: 'center' }}>
-            <div
-              className="assignment-event-title"
-              style={{
-                fontSize: fontSize,
-              }}
-            >
-              {title}
-            </div>
-          </div>
-      );
-    }
-
-    return (
-      <Tooltip title={tooltipContent} placement="top" arrow>
-        <div onContextMenu={(e) => showEventMenu({ event: e, props: { event: eventInfo.event }})} className="event-title">{eventInfo.event.title}</div>
-      </Tooltip>
-    );
+    return <div className="event-title">{title}</div>;
   };
 
-  
+  const handleEventMount = (mountInfo: EventMountArg) => {
+    const isDummy = mountInfo.event.extendedProps.isDummy;
+    const isAssignment = mountInfo.event.classNames.includes(EVENT_CLASS_NAME.ASSIGNMENT);
+
+    if (isDummy) {
+        mountInfo.el.style.backgroundColor = 'rgba(0,0,0,0.0)'; 
+    }
+
+    if (isDummy || isAssignment) {
+        mountInfo.el.oncontextmenu = (e) => {
+            e.preventDefault();
+            const props = {
+                event: mountInfo.event,
+                resource: isDummy ? mountInfo.event.extendedProps.resource : resources.find(r => r.id === mountInfo.event.resourceId),
+                date: isDummy ? mountInfo.event.extendedProps.date : mountInfo.event.start
+            };
+            show({ event: e, props });
+        };
+    }
+  };
 
   useEffect(() => {
     if (!loading && calendarRef.current) {
@@ -358,20 +286,10 @@ export default function OverallSchedulePage() {
     }
   }, [loading]);
 
-
   useEffect(() => {
-    // 土曜
-    document.querySelectorAll('td.fc-timeline-slot.saturday').forEach((el) => {
-      (el as HTMLElement).style.backgroundColor = '#f0f8ff';
-    });
-    // 日曜
-    document.querySelectorAll('td.fc-timeline-slot.sunday').forEach((el) => {
-      (el as HTMLElement).style.backgroundColor = '#fff0f0';
-    });
-    // 祝日
-    document.querySelectorAll('td.fc-timeline-slot.holiday').forEach((el) => {
-      (el as HTMLElement).style.backgroundColor = '#fff0f0';
-    });
+    document.querySelectorAll('td.fc-timeline-slot.saturday').forEach(el => (el as HTMLElement).style.backgroundColor = '#f0f8ff');
+    document.querySelectorAll('td.fc-timeline-slot.sunday').forEach(el => (el as HTMLElement).style.backgroundColor = '#fff0f0');
+    document.querySelectorAll('td.fc-timeline-slot.holiday').forEach(el => (el as HTMLElement).style.backgroundColor = '#fff0f0');
   });
 
   useEffect(() => {
@@ -380,17 +298,22 @@ export default function OverallSchedulePage() {
     }
   }, [dataError]);
 
+  const isAssignment = (props: ItemParams) => props?.event?.classNames.includes(EVENT_CLASS_NAME.ASSIGNMENT);
+  const isDummy = (props: ItemParams) => !!props?.event?.extendedProps.isDummy;
+  const getAssignmentsOnDay = (props: ItemParams) => {
+      if (!props) return [];
+      const date = props.date ? formatDate(new Date(props.date).toISOString()) : props.event?.startStr;
+      const resourceId = props.resource?.id || props.event?.getResources()[0]?.id;
+      if (!date || !resourceId) return [];
+      return events.filter(e => e.start === date && e.resourceId === resourceId && e.className === EVENT_CLASS_NAME.ASSIGNMENT);
+  };
+
   return (
     <div>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h4" gutterBottom>全体工程管理ボード</Typography>
         <Box sx={{ display: 'flex', gap: 2 }}>
-          
-          {(dataError || loading) && (
-            <IconButton onClick={() => fetchData()} disabled={loading} color="primary">
-              <ReplayIcon />
-            </IconButton>
-          )}
+          {(dataError || loading) && <IconButton onClick={() => fetchData()} disabled={loading} color="primary"><ReplayIcon /></IconButton>}
         </Box>
       </Box>
       {loading ? (
@@ -414,149 +337,55 @@ export default function OverallSchedulePage() {
             eventResizableFromStart={true}
             eventDrop={handleEventDrop}
             eventResize={handleEventResize}
-            // eventClick={handleEventClick}
             eventContent={renderEventContent}
-            resourceAreaColumns={[{
-              field: 'title',
-              headerContent: 'リソース名',
-            }]}
-            resourceGroupLabelContent={(groupInfo) => {
-              const group = groupInfo.groupValue;
-              if (group === 'projects' || group === 'workers') {
-                return (
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', pr: 1 }}>
-                    <Typography variant="subtitle2" sx={{ pl: '4px' }}>{group === 'projects' ? '案件名' : '作業員名'}</Typography>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      sx={{ fontSize: '0.75rem', minWidth: 0, p: '2px 6px' }}
-                      onClick={() => {
-                        const filtered = resources.filter(r => r.group === group);
-                        setReorderableResources(filtered);
-                        setReorderResourceDialogOpen(true);
-                      }}
-                    >
-                      並び替え
-                    </Button>
-                  </Box>
-                );
-              }
-              return <Typography variant="subtitle2" sx={{ pl: '4px' }}>{groupInfo.groupValue}</Typography>;
-            }}
-            slotLaneDidMount={(info) => {
-              const classes = getDayClasses({ date: info.date } as any);
-              classes.forEach((cls: string) => info.el.classList.add(cls));
-            }}
-            slotLabelDidMount={(info) => {
-              const classes = getDayClasses({ date: info.date } as any);
-              classes.forEach((cls: string) => info.el.classList.add(cls));
-            }}
+            eventDidMount={handleEventMount}
+            resourceAreaColumns={[{ field: 'title', headerContent: 'リソース名' }]}
+            resourceGroupLabelContent={(groupInfo) => (
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', pr: 1 }}>
+                <Typography variant="subtitle2" sx={{ pl: '4px' }}>{groupInfo.groupValue === 'projects' ? '案件名' : '作業員名'}</Typography>
+                <Button size="small" variant="outlined" sx={{ fontSize: '0.75rem', minWidth: 0, p: '2px 6px' }} onClick={() => {
+                  const filtered = resources.filter(r => r.group === groupInfo.groupValue);
+                  setReorderableResources(filtered);
+                  setReorderResourceDialogOpen(true);
+                }}>並び替え</Button>
+              </Box>
+            )}
+            slotLaneDidMount={(info) => getDayClasses({ date: info.date } as any).forEach(cls => info.el.classList.add(cls))}
+            slotLabelDidMount={(info) => getDayClasses({ date: info.date } as any).forEach(cls => info.el.classList.add(cls))}
             slotMinWidth={60}
             resourceAreaWidth="250px"
             dragScroll={true}
           />
         </Paper>
       )}
-      <Menu id={EVENT_MENU_ID}>
-        <Item onClick={({props}) => {handleAssignmentCopy(props.event)}}>工事名コピー</Item>
-        <Item onClick={({props}) => {handleAssignmentCut(props.event)}}>工事名切り取り</Item>
-        <Item onClick={({props}) => {handleAssignmentDelete(props.event)}}>工事名削除</Item>
-        <Item
-          disabled={!clipboard}
-          onClick={({ props }) => {
-            if (!props.event) return;
-            const targetEvent = props.event;
-            const resourceId = targetEvent.getResources()[0]?.id;
-            const date = targetEvent.startStr;
-            if (resourceId && date) {
-              handlePaste(resourceId, date);
-            } else {
-              console.error("Paste failed: could not determine resourceId or date from event.", targetEvent);
-            }
-          }}
-        >
-          工事名の貼付け
-        </Item>
-        <Item
-          hidden={({ props }) => {
-            if (!props.event) return true;
-            const resourceId = props.event.getResources()[0]?.id;
-            return !resourceId || !resourceId.startsWith('work_');
-          }}
-          onClick={({ props }) => {
-            if (!props.event) return;
-            const targetEvent = props.event;
-            const resourceId = targetEvent.getResources()[0]?.id;
-            const date = targetEvent.startStr;
-            
-            if (resourceId && date) {
-              setOtherAssignmentDate(date);
-              setOtherAssignmentResourceId(resourceId);
-              setOtherAssignmentDialogOpen(true);
-            }
-          }}
-        >
-          その他予定を追加
-        </Item>
-        <Item
-          hidden={({ props }) => {
-            if (!props.event) return true;
-            const resourceId = props.event.getResources()[0]?.id;
-            // 作業員のイベントでない場合は非表示
-            return !resourceId || !resourceId.startsWith('work_');
-          }}
-          onClick={({ props }) => {
-            if (!props.event) return;
-            const targetEvent = props.event;
-            const resourceId = targetEvent.getResources()[0]?.id;
-            const date = targetEvent.startStr;
-
-            if (!resourceId || !date) return;
-
-            const assignmentsOnDay = events.filter(e => 
-                e.start === date && 
-                e.resourceId === resourceId &&
-                e.className === EVENT_CLASS_NAME.ASSIGNMENT
-            );
-            
-            if (assignmentsOnDay.length > 1) {
-                const sortedAssignments = [...assignmentsOnDay].sort((a, b) => {
-                    const orderA = a.extendedProps?.assignment_order ?? 0;
-                    const orderB = b.extendedProps?.assignment_order ?? 0;
-                    return orderA - orderB;
-                });
-                setReorderableAssignments(sortedAssignments);
-                setReorderDialogOpen(true);
-            } else {
-                showNotification('この日の並び替え対象の作業は1件のみです。', 'info');
-            }
-          }}
-        >
-          この日の作業順を並び替え
-        </Item>
-      </Menu>
-      <Menu id={SLOT_MENU_ID}>
-        <Item onClick={({ props }) => { props?.resource && handleBlockCopy(props.resource.id, formatDate(props.date.toISOString())) }}>ブロックコピー</Item>
-        <Item onClick={({ props }) => { props?.resource && handleBlockCut(props.resource.id, formatDate(props.date.toISOString())) }}>ブロック切り取り</Item>
-        <Item onClick={({ props }) => { props?.resource && handleBlockDelete(props.resource.id, formatDate(props.date.toISOString())) }}>ブロック削除</Item>
-        <Item
-          hidden={({ props }) => !props?.resource?.id.startsWith('work_')}
-          onClick={({ props }) => {
-            if (props?.resource) {
-              setOtherAssignmentDate(formatDate(props.date.toISOString()));
-              setOtherAssignmentResourceId(props.resource.id);
-              setOtherAssignmentDialogOpen(true);
-            }
-          }}
-        >
-          その他予定を追加
-        </Item>
-        <Item disabled={!clipboard} onClick={({ props }) => { props?.resource && handlePaste(props.resource.id, formatDate(props.date.toISOString())) }}>工事名の貼付け</Item>
+      <Menu id={CONTEXT_MENU_ID}>
+        <Item hidden={({props}) => isDummy(props) || !isAssignment(props)} onClick={({props}) => handleAssignmentCopy(props.event)}>工事名コピー</Item>
+        <Item hidden={({props}) => isDummy(props) || !isAssignment(props)} onClick={({props}) => handleAssignmentCut(props.event)}>工事名切り取り</Item>
+        <Item hidden={({props}) => isDummy(props) || !isAssignment(props)} onClick={({props}) => handleAssignmentDelete(props.event)}>工事名削除</Item>
+        <Item hidden={({props}) => getAssignmentsOnDay(props).length <= 1} onClick={({props}) => {
+            const assignments = getAssignmentsOnDay(props);
+            const sorted = [...assignments].sort((a, b) => (a.extendedProps?.assignment_order ?? 0) - (b.extendedProps?.assignment_order ?? 0));
+            setReorderableAssignments(sorted);
+            setReorderDialogOpen(true);
+        }}>この日の作業順を並び替え</Item>
+        <Item onClick={({props}) => {
+            const date = props.date ? formatDate(new Date(props.date).toISOString()) : props.event.startStr;
+            const resourceId = props.resource?.id || props.event.getResources()[0]?.id;
+            setOtherAssignmentDate(date);
+            setOtherAssignmentResourceId(resourceId);
+            setOtherAssignmentDialogOpen(true);
+        }}>その他予定を追加</Item>
+        <Item disabled={!clipboard} onClick={({props}) => {
+            const date = props.date ? formatDate(new Date(props.date).toISOString()) : props.event.startStr;
+            const resourceId = props.resource?.id || props.event.getResources()[0]?.id;
+            handlePaste(resourceId, date);
+        }}>工事名の貼付け</Item>
+        <Item hidden={({props}) => !isDummy(props)} onClick={({props}) => handleBlockCopy(props.resource.id, formatDate(props.date.toISOString()))}>ブロックコピー</Item>
+        <Item hidden={({props}) => !isDummy(props)} onClick={({props}) => handleBlockCut(props.resource.id, formatDate(props.date.toISOString()))}>ブロック切り取り</Item>
+        <Item hidden={({props}) => !isDummy(props)} onClick={({props}) => handleBlockDelete(props.resource.id, formatDate(props.date.toISOString()))}>ブロック削除</Item>
       </Menu>
       <Snackbar open={notification.open} autoHideDuration={6000} onClose={handleCloseNotification}>
-        <Alert onClose={handleCloseNotification} severity={notification.severity} sx={{ width: '100%' }} variant="filled">
-          {notification.message}
-        </Alert>
+        <Alert onClose={handleCloseNotification} severity={notification.severity} sx={{ width: '100%' }} variant="filled">{notification.message}</Alert>
       </Snackbar>
       <Dialog open={reorderDialogOpen} onClose={handleCloseDialog}>
         <DialogTitle>表示順の変更</DialogTitle>
@@ -577,9 +406,7 @@ export default function OverallSchedulePage() {
         <DialogContent>
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleResourceDragEnd}>
             <SortableContext items={reorderableResources.map(item => item.id)} strategy={verticalListSortingStrategy}>
-              {reorderableResources.map(item => (
-                <SortableItem key={item.id} id={item.id} title={item.title} />
-              ))}
+              {reorderableResources.map(item => <SortableItem key={item.id} id={item.id} title={item.title} />)}
             </SortableContext>
           </DndContext>
         </DialogContent>
@@ -591,32 +418,8 @@ export default function OverallSchedulePage() {
       <Dialog open={!!editingEvent} onClose={handleCloseDialog}>
         <DialogTitle>配置情報の編集</DialogTitle>
         <DialogContent>
-          <TextField
-            autoFocus
-            margin="dense"
-            id="title"
-            name="name"
-            label="案件名"
-            type="text"
-            fullWidth
-            variant="standard"
-            value={editFormData.title}
-            disabled
-          />
-          <TextField
-            margin="dense"
-            id="start"
-            name="start"
-            label="日付"
-            type="date"
-            fullWidth
-            variant="standard"
-            value={editFormData.start}
-            onChange={handleDialogInputChange}
-            InputLabelProps={{
-              shrink: true,
-            }}
-          />
+          <TextField autoFocus margin="dense" id="title" name="name" label="案件名" type="text" fullWidth variant="standard" value={editFormData.title} disabled />
+          <TextField margin="dense" id="start" name="start" label="日付" type="date" fullWidth variant="standard" value={editFormData.start} onChange={handleDialogInputChange} InputLabelProps={{ shrink: true }} />
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseDialog}>キャンセル</Button>
@@ -626,18 +429,7 @@ export default function OverallSchedulePage() {
       <Dialog open={projectEditDialogOpen} onClose={handleCloseDialog}>
         <DialogTitle>プロジェクトの編集</DialogTitle>
         <DialogContent>
-          <TextField
-            autoFocus
-            margin="dense"
-            id="name"
-            name="name"
-            label="案件名"
-            type="text"
-            fullWidth
-            variant="standard"
-            value={projectEditFormData.name}
-            onChange={handleProjectDialogInputChange}
-          />
+          <TextField autoFocus margin="dense" id="name" name="name" label="案件名" type="text" fullWidth variant="standard" value={projectEditFormData.name} onChange={handleProjectDialogInputChange} />
           <Box sx={{ mt: 2 }}>
             <Typography variant="body1">バーの色</Typography>
             <SketchPicker color={projectEditFormData.bar_color} onChange={handleColorChange} />
@@ -651,17 +443,7 @@ export default function OverallSchedulePage() {
       <Dialog open={otherAssignmentDialogOpen} onClose={handleCloseDialog}>
         <DialogTitle>その他予定の追加</DialogTitle>
         <DialogContent>
-          <TextField
-            autoFocus
-            margin="dense"
-            id="other-title"
-            label="予定名"
-            type="text"
-            fullWidth
-            variant="standard"
-            value={otherAssignmentTitle}
-            onChange={(e) => setOtherAssignmentTitle(e.target.value)}
-          />
+          <TextField autoFocus margin="dense" id="other-title" label="予定名" type="text" fullWidth variant="standard" value={otherAssignmentTitle} onChange={(e) => setOtherAssignmentTitle(e.target.value)} />
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseDialog}>キャンセル</Button>
