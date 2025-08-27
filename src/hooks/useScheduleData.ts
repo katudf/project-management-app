@@ -70,6 +70,8 @@ export const useScheduleData = () => {
       });
       const assignmentEvents: CalendarEvent[] = assignmentsData.map(assignment => {
         const project = projectsData.find(p => p.id == assignment.projectId);
+        const isOtherAssignment = !assignment.projectId && assignment.title;
+
         const event: CalendarEvent = {
           id: `assign_${assignment.id}`,
           resourceId: `${RESOURCE_PREFIX.WORKER}${assignment.workerId}`,
@@ -78,7 +80,12 @@ export const useScheduleData = () => {
           className: EVENT_CLASS_NAME.ASSIGNMENT,
           extendedProps: { assignment_order: assignment.assignment_order },
         };
-        if (project && project.bar_color) {
+
+        if (isOtherAssignment) {
+          event.borderColor = 'red';
+          event.backgroundColor = 'white';
+          event.textColor = 'red';
+        } else if (project && project.bar_color) {
           event.backgroundColor = project.bar_color;
           event.borderColor = project.bar_color;
         }
