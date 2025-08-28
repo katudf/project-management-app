@@ -6,6 +6,7 @@ export interface Resource {
   group: 'projects' | 'workers';
   display_order?: number;
   parentId?: string;
+  extendedProps?: any;
 }
 
 export interface CalendarEvent {

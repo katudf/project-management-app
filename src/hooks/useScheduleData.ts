@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/supabaseClient';
 import type { CalendarEvent, Resource } from '@/types/schedule';
 import { RESOURCE_PREFIX, EVENT_CLASS_NAME } from '@/constants/scheduleConstants';
-import { getDuration, formatDate } from '@/utils/dateUtils';
+import { getDuration, formatDate, calculateAge } from '@/utils/dateUtils';
 
 /**
  * スケジュール、リソース、イベントに関するデータを取得し、整形するカスタムフック
@@ -45,6 +45,10 @@ export const useScheduleData = () => {
         group: 'workers',
         title: worker.name,
         order: worker.display_order,
+        extendedProps: {
+          birthDate: worker.birthDate,
+          age: worker.birthDate ? calculateAge(worker.birthDate) : undefined,
+        }
       }));
       setResources([...projectResources, ...workerResources]);
 

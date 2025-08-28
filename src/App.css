@@ -136,3 +136,11 @@ td.fc-timeline-slot.holiday > div,
 .fc-event.assignment-count-3 .assignment-event-title {
   -webkit-line-clamp: 1;
 }
+
+.fc-datagrid-cell-cushion {
+  display: flex !important;
+  align-items: center !important;
+  width: 100%;
+  padding-right: 8px; /* ボタンとの間に少し余白を追加 */
+  box-sizing: border-box; /* パディングを幅に含める */
+}

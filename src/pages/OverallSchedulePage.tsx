@@ -89,6 +89,22 @@ export default function OverallSchedulePage() {
 
   const { show } = useContextMenu({ id: CONTEXT_MENU_ID });
 
+  const handleEventClick = (clickInfo: any) => {
+    const { event } = clickInfo;
+    if (event.classNames.includes(EVENT_CLASS_NAME.PROJECT_MAIN)) {
+      const associatedResources = event.getResources();
+      if (associatedResources.length > 0) {
+        const resource = associatedResources[0];
+        const projectData = { id: resource.id.replace(RESOURCE_PREFIX.PROJECT, ''), name: resource.title, bar_color: event.backgroundColor };
+        setEditingProject(projectData);
+        setProjectEditFormData({ name: projectData.name, bar_color: projectData.bar_color || '#3788d8' });
+        setProjectEditDialogOpen(true);
+      } else {
+        console.error('Resource not found for event:', event);
+      }
+    }
+  };
+
   const handleSaveOtherAssignment = useCallback(async () => {
     if (!otherAssignmentTitle.trim()) {
       showNotification('予定名を入力してください。', 'warning');
@@ -201,7 +217,7 @@ export default function OverallSchedulePage() {
   const calendarRef = useRef<FullCalendar | null>(null);
 
   useEffect(() => {
-    if (calendarRef.current && !loading) {
+    if (!loading && calendarRef.current) {
       const calendarApi = calendarRef.current.getApi();
       const view = calendarApi.view;
       const workerResources = resources.filter(r => r.id.startsWith(RESOURCE_PREFIX.WORKER));
@@ -341,11 +357,35 @@ export default function OverallSchedulePage() {
             eventResize={handleEventResize}
             eventContent={renderEventContent}
             eventDidMount={handleEventMount}
-            resourceAreaColumns={[{ field: 'title', headerContent: 'リソース名' }]}
+            eventClick={handleEventClick}
+            resourceAreaColumns={[
+              {
+                headerContent: 'リソース名',
+                cellContent: (arg) => {
+                  console.log('Resource object in cellContent:', arg.resource);
+
+                  const { resource } = arg;
+                  if (resource._resource.extendedProps && resource._resource.extendedProps.group === 'workers') {
+                    const { birthDate, age } = resource._resource.extendedProps;
+                    const birthDateStr = birthDate ? new Date(birthDate).toLocaleDateString('ja-JP') : '';
+                    const ageStr = age !== undefined ? `(${age}歳)` : '';
+                    return (
+                      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', p: '4px', height: '100%', justifyContent: 'center' }}>
+                        <Typography variant="body2">{resource.title}</Typography>
+                        <Typography variant="caption" color="textSecondary">
+                          {birthDateStr} {ageStr}
+                        </Typography>
+                      </Box>
+                    );
+                  }
+                  return <Box sx={{ p: '4px', display: 'flex', alignItems: 'center', height: '100%' }}><Typography variant="body2">{resource.title}</Typography></Box>;
+                }
+              }
+            ]}
             resourceGroupLabelContent={(groupInfo) => (
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', pr: 1 }}>
-                <Typography variant="subtitle2" sx={{ pl: '4px' }}>{groupInfo.groupValue === 'projects' ? '案件名' : '作業員名'}</Typography>
-                <Button size="small" variant="outlined" sx={{ fontSize: '0.75rem', minWidth: 0, p: '2px 6px' }} onClick={() => {
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', flexGrow: 1, pl: 1 }}>
+                <Typography variant="subtitle2">{groupInfo.groupValue === 'projects' ? '案件名' : '作業員名'}</Typography>
+                <Button size="small" variant="outlined" sx={{ fontSize: '0.75rem', minWidth: 0, p: '2px 6px', ml: '2em' }} onClick={() => {
                   const filtered = resources.filter(r => r.group === groupInfo.groupValue);
                   setReorderableResources(filtered);
                   setReorderResourceDialogOpen(true);
