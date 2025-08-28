@@ -344,9 +344,26 @@ export default function OverallSchedulePage() {
             plugins={[resourceTimelinePlugin, interactionPlugin]}
             schedulerLicenseKey="GPL-My-Project-Is-Open-Source"
             locale={jaLocale}
-            initialView='resourceTimelineSixMonths'
-            headerToolbar={{ left: 'prev,next today', center: 'title', right: 'resourceTimelineSixMonths' }}
+            initialView='resourceTimelineWeekRange'
+            visibleRange={(() => {
+              const today = new Date();
+              const dayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+              const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Calculate days to subtract to get to Monday
+              const mondayOfCurrentWeek = new Date(today.setDate(today.getDate() - diff));
+              const sixMonthsLater = new Date(mondayOfCurrentWeek);
+              sixMonthsLater.setMonth(sixMonthsLater.getMonth() + 6);
+              return {
+                start: mondayOfCurrentWeek.toISOString().split('T')[0],
+                end: sixMonthsLater.toISOString().split('T')[0]
+              };
+            })()}
+            headerToolbar={{ left: 'prev,next today', center: 'title', right: 'resourceTimelineWeekRange' }}
             views={{
+              resourceTimelineWeekRange: {
+                type: 'resourceTimeline',
+                intervalDuration: { weeks: 1 },
+                buttonText: '6ヶ月'
+              },
               resourceTimelineSixMonths: {
                 type: 'resourceTimeline',
                 duration: { months: 6 },

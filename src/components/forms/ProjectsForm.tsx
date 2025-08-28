@@ -16,14 +16,14 @@ interface Project {
   endDate: string;
   status: string;
   customerId: number;
-  order: number | null;
+  order: number;
   estimatedAmount: number | null;
   finalAmount: number | null;
   taxAmount: number | null;
   isPaid: boolean;
   estimatePdfUrl: string | null;
   contractPdfUrl: string | null;
-  display_order: number | null;
+  display_order: number;
   bar_color: string | null;
   Customers: {
     name: string;
@@ -36,14 +36,12 @@ export default function ProjectsForm() {
   const [endDate, setEndDate] = useState('');
   const [status, setStatus] = useState('');
   const [customerId, setCustomerId] = useState('');
-  const [order, setOrder] = useState('');
   const [estimatedAmount, setEstimatedAmount] = useState('');
   const [finalAmount, setFinalAmount] = useState('');
   const [taxAmount, setTaxAmount] = useState('');
   const [isPaid, setIsPaid] = useState(false);
   const [estimatePdfUrl, setEstimatePdfUrl] = useState('');
   const [contractPdfUrl, setContractPdfUrl] = useState('');
-  const [displayOrder, setDisplayOrder] = useState('');
   const [barColor, setBarColor] = useState('#3788d8');
   const [displayColorPicker, setDisplayColorPicker] = useState(false);
   const [message, setMessage] = useState('');
@@ -77,19 +75,13 @@ export default function ProjectsForm() {
   }, []);
 
   const resetForm = () => {
-    setName('');
-    setStartDate('');
-    setEndDate('');
-    setStatus('');
     setCustomerId('');
-    setOrder('');
     setEstimatedAmount('');
     setFinalAmount('');
     setTaxAmount('');
     setIsPaid(false);
     setEstimatePdfUrl('');
     setContractPdfUrl('');
-    setDisplayOrder('');
     setBarColor('#3788d8');
     setEditingProject(null);
     setIsEditing(false);
@@ -100,15 +92,13 @@ export default function ProjectsForm() {
     setStartDate(project.startDate);
     setEndDate(project.endDate);
     setStatus(project.status);
-    setCustomerId(String(project.customerId));
-    setOrder(String(project.order || ''));
+        setCustomerId(String(project.customerId));
     setEstimatedAmount(String(project.estimatedAmount || ''));
     setFinalAmount(String(project.finalAmount || ''));
     setTaxAmount(String(project.taxAmount || ''));
     setIsPaid(project.isPaid);
     setEstimatePdfUrl(project.estimatePdfUrl || '');
     setContractPdfUrl(project.contractPdfUrl || '');
-    setDisplayOrder(String(project.display_order || ''));
     setBarColor(project.bar_color || '#3788d8');
     setEditingProject(project);
     setIsEditing(true);
@@ -129,14 +119,12 @@ export default function ProjectsForm() {
       endDate,
       status,
       customerId: parseInt(customerId, 10),
-      order: order ? parseInt(order, 10) : null,
       estimatedAmount: estimatedAmount ? parseInt(estimatedAmount, 10) : null,
       finalAmount: finalAmount ? parseInt(finalAmount, 10) : null,
       taxAmount: taxAmount ? parseInt(taxAmount, 10) : null,
       isPaid,
       estimatePdfUrl,
       contractPdfUrl,
-      display_order: displayOrder ? parseInt(displayOrder, 10) : null,
       bar_color: barColor,
     };
 
@@ -145,7 +133,29 @@ export default function ProjectsForm() {
       const { error: updateError } = await supabase.from('Projects').update(projectData).eq('id', editingProject.id);
       error = updateError;
     } else {
-      const { error: insertError } = await supabase.from('Projects').insert([projectData]);
+      // Auto-assign order and display_order for new projects
+      const { data: maxValues, error: maxError } = await supabase
+        .from('Projects')
+        .select('order, display_order')
+        .order('order', { ascending: false })
+        .order('display_order', { ascending: false })
+        .limit(1);
+
+      if (maxError) {
+        setMessage(`最大値の取得中にエラーが発生しました: ${maxError.message}`);
+        return;
+      }
+
+      const nextOrder = (maxValues && maxValues.length > 0 && maxValues[0].order !== null) ? maxValues[0].order + 1 : 1;
+      const nextDisplayOrder = (maxValues && maxValues.length > 0 && maxValues[0].display_order !== null) ? maxValues[0].display_order + 1 : 1;
+
+      const newProjectData = {
+        ...projectData,
+        order: nextOrder,
+        display_order: nextDisplayOrder,
+      };
+
+      const { error: insertError } = await supabase.from('Projects').insert([newProjectData]);
       error = insertError;
     }
 
@@ -223,18 +233,6 @@ export default function ProjectsForm() {
               ))}
             </Select>
           </FormControl>
-          <TextField
-            label="順番"
-            type="number"
-            value={order}
-            onChange={(e) => setOrder(e.target.value)}
-          />
-          <TextField
-            label="表示順"
-            type="number"
-            value={displayOrder}
-            onChange={(e) => setDisplayOrder(e.target.value)}
-          />
           <div>
             <Typography variant="body1">バーの色</Typography>
             <div style={{ padding: '5px', background: '#fff', borderRadius: '1px', boxShadow: '0 0 0 1px rgba(0,0,0,.1)', display: 'inline-block', cursor: 'pointer' }} onClick={handleColorPickerOpen}>
