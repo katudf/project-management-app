@@ -378,7 +378,7 @@ export default function OverallSchedulePage() {
                       </Box>
                     );
                   }
-                  return <Box sx={{ p: '4px', display: 'flex', alignItems: 'center', height: '100%' }}><Typography variant="body2">{resource.title}</Typography></Box>;
+                  return <Box sx={{ p: '4px', display: 'flex', alignItems: 'center', height: '100%', justifyContent: 'flex-start' }}><Typography variant="body2">{resource.title}</Typography></Box>;
                 }
               }
             ]}

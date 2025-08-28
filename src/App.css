@@ -38,6 +38,9 @@
   padding-bottom: 0 !important;
   max-height: 20px !important;
   box-sizing: border-box !important;
+    /* ↓↓ ここに角丸とoverflowを追加！ ↓↓ */
+  border-radius: 4px !important;
+  overflow: hidden !important; /* 子要素のはみ出し防止に必須！ */
 }
 .fc-event.project-main-event .event-title {
   color: #1a5276;
