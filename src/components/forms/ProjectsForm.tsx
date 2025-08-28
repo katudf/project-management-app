@@ -216,7 +216,22 @@ export default function ProjectsForm() {
             InputLabelProps={{ shrink: true }}
             required
           />
-          <TextField label="ステータス" value={status} onChange={(e) => setStatus(e.target.value)} required />
+          <FormControl fullWidth required>
+            <InputLabel id="status-select-label">ステータス</InputLabel>
+            <Select
+              labelId="status-select-label"
+              id="status-select"
+              value={status}
+              label="ステータス"
+              onChange={(e) => setStatus(e.target.value)}
+            >
+              {[ "見積", "予定", "施工中", "完了", "中止", "保留", "受注済"].map((option) => (
+                <MenuItem key={option} value={option}>
+                  {option}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
           <FormControl fullWidth required>
             <InputLabel id="customer-select-label">顧客</InputLabel>
             <Select
