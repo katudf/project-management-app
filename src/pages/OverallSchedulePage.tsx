@@ -8,7 +8,7 @@ import { CSS } from '@dnd-kit/utilities';
 import FullCalendar from '@fullcalendar/react';
 import resourceTimelinePlugin from '@fullcalendar/resource-timeline';
 import interactionPlugin from '@fullcalendar/interaction';
-import dayGridPlugin from '@fullcalendar/daygrid';
+
 import type { EventContentArg, EventMountArg } from '@fullcalendar/core';
 import jaLocale from '@fullcalendar/core/locales/ja';
 import ReplayIcon from '@mui/icons-material/Replay';
@@ -341,11 +341,18 @@ export default function OverallSchedulePage() {
           <FullCalendar
             ref={calendarRef}
             key={resources.map(r => r.id).join('-')}
-            plugins={[resourceTimelinePlugin, interactionPlugin, dayGridPlugin]}
+            plugins={[resourceTimelinePlugin, interactionPlugin]}
             schedulerLicenseKey="GPL-My-Project-Is-Open-Source"
             locale={jaLocale}
-            initialView='resourceTimelineMonth'
-            headerToolbar={{ left: 'prev,next today', center: 'title', right: '' }}
+            initialView='resourceTimelineSixMonths'
+            headerToolbar={{ left: 'prev,next today', center: 'title', right: 'resourceTimelineSixMonths' }}
+            views={{
+              resourceTimelineSixMonths: {
+                type: 'resourceTimeline',
+                duration: { months: 6 },
+                buttonText: '6ヶ月'
+              }
+            }}
             editable={true}
             resources={resources}
             resourceGroupField="group"
