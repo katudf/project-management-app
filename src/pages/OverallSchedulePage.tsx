@@ -256,7 +256,9 @@ export default function OverallSchedulePage() {
     if (eventInfo.event.extendedProps.isDummy) return true;
     const { event } = eventInfo;
     const title = event.title;
-    return <div className="event-title">{title}</div>;
+    const isAssignment = event.classNames.includes(EVENT_CLASS_NAME.ASSIGNMENT);
+    const className = isAssignment ? "assignment-event-title" : "event-title";
+    return <div className={className}>{title}</div>;
   };
 
   const handleEventMount = (mountInfo: EventMountArg) => {

@@ -52,16 +52,20 @@
 .fc-event.assignment-event { 
   background-color: #2ecc71;
   border-color: #27ae60;
+  display: flex;
+  align-items: flex-start; /* これで中の要素が全部「上揃え」になる */
+  overflow: hidden;
 }
 
 .assignment-event-title { 
-  padding: 1px 4px;
-  line-height: 1.2;
+  padding: 2px 5px;
+  line-height: 1;
   overflow: hidden;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  text-overflow: ellipsis;
   word-break: break-word;
+  vertical-align: text-top;
+  display: block;
+  height: 100%; 
+  box-sizing: border-box; 
 }
 
 /* Day cell background colors */
@@ -120,7 +124,6 @@ td.fc-timeline-slot.holiday > div,
 
 /* Assignment event title line clamping */
 .fc-event.assignment-count-1 .assignment-event-title {
-  -webkit-line-clamp: 4;
 }
 .fc-event.assignment-count-2 .assignment-event-title {
   -webkit-line-clamp: 2;
