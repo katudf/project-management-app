@@ -58,14 +58,19 @@
 }
 
 .assignment-event-title { 
-  padding: 2px 5px;
+/*  padding: 2px 5px;
   line-height: 1;
   overflow: hidden;
   word-break: break-word;
   vertical-align: text-top;
   display: block;
   height: 100%; 
-  box-sizing: border-box; 
+  box-sizing: border-box; */
+  line-height: 1.1;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
 }
 
 /* Day cell background colors */
