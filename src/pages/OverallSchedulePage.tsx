@@ -305,10 +305,8 @@ export default function OverallSchedulePage() {
     }
   }, [loading]);
 
-  useEffect(() => {
-    document.querySelectorAll('td.fc-timeline-slot.saturday').forEach(el => (el as HTMLElement).style.backgroundColor = '#f0f8ff');
-    document.querySelectorAll('td.fc-timeline-slot.sunday').forEach(el => (el as HTMLElement).style.backgroundColor = '#fff0f0');
-    document.querySelectorAll('td.fc-timeline-slot.holiday').forEach(el => (el as HTMLElement).style.backgroundColor = '#fff0f0');
+    useEffect(() => {
+    // Cell styling is handled in App.css
   });
 
   useEffect(() => {

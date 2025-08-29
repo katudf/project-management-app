@@ -110,6 +110,16 @@ td.fc-timeline-slot.holiday > div,
   color: #ff0000 !important;
 }
 
+td.fc-timeline-slot.today,
+td.fc-timeline-slot.today > div,
+.fc-timeline-slot.today .fc-timeline-slot-lane,
+.fc-timeline-slot.today,
+.fc-datagrid-cell.today .fc-datagrid-cell-frame,
+.fc-datagrid-cell.today {
+  background-color: #fffacd !important;
+  background: #fffacd !important;
+}
+
 /* Borders to maintain grid lines */
 .fc-timeline-slot-lane, .fc-datagrid-cell-frame {
   border-right: 1px solid #ddd;
