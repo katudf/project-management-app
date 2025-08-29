@@ -10,6 +10,7 @@ import ServiceMasterForm from '../components/forms/ServiceMasterForm';
 import WorkersForm from '../components/forms/WorkersForm';
 import WorkLogsForm from '../components/forms/WorkLogsForm';
 import WorkerCertificationsForm from '../components/forms/WorkerCertificationsForm';
+import CompanyHolidaysForm from '../components/forms/CompanyHolidaysForm';
 
 
 interface TabPanelProps {
@@ -63,6 +64,7 @@ export default function DashboardPage() {
           <Tab label="Workers" {...a11yProps(7)} />
           <Tab label="WorkLogs" {...a11yProps(8)} />
           <Tab label="WorkerCertifications" {...a11yProps(9)} />
+          <Tab label="CompanyHolidays" {...a11yProps(10)} />
         </Tabs>
       </Box>
       <TabPanel value={value} index={0}>
@@ -94,6 +96,9 @@ export default function DashboardPage() {
       </TabPanel>
       <TabPanel value={value} index={9}>
         <WorkerCertificationsForm />
+      </TabPanel>
+      <TabPanel value={value} index={10}>
+        <CompanyHolidaysForm />
       </TabPanel>
     </Box>
   );

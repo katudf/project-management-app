@@ -120,6 +120,16 @@ td.fc-timeline-slot.today > div,
   background: #fffacd !important;
 }
 
+td.fc-timeline-slot.company-holiday,
+td.fc-timeline-slot.company-holiday > div,
+.fc-timeline-slot.company-holiday .fc-timeline-slot-lane,
+.fc-timeline-slot.company-holiday,
+.fc-datagrid-cell.company-holiday .fc-datagrid-cell-frame,
+.fc-datagrid-cell.company-holiday {
+  background-color: #e8f8f5 !important;
+  background: #e8f8f5 !important;
+}
+
 /* Borders to maintain grid lines */
 .fc-timeline-slot-lane, .fc-datagrid-cell-frame {
   border-right: 1px solid #ddd;
