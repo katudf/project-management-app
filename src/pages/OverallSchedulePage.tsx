@@ -357,7 +357,7 @@ export default function OverallSchedulePage() {
                 end: sixMonthsLater.toISOString().split('T')[0]
               };
             })()}
-            headerToolbar={{ left: 'prev,next today', center: 'title', right: '' }}
+            headerToolbar={{ left: '', center: 'title', right: '' }}
             views={{
               resourceTimelineWeekRange: {
                 type: 'resourceTimeline',
