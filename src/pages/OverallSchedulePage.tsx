@@ -50,6 +50,7 @@ const SortableItem = ({ id, title }: { id: string, title: string }) => {
 
 export default function OverallSchedulePage() {
   const { resources, events, setEvents, loading, error: dataError, fetchData } = useScheduleData();
+  const [calendarTitle, setCalendarTitle] = useState('');
   const [notification, setNotification] = useState<{ open: boolean; message: string; severity: 'success' | 'error' | 'info' | 'warning'; }>({ open: false, message: '', severity: 'info' });
   const [clipboard, setClipboard] = useState<ClipboardData | null>(null);
   const showNotification = useCallback((message: string, severity: 'success' | 'error' | 'info' | 'warning' = 'info') => {
@@ -329,8 +330,9 @@ export default function OverallSchedulePage() {
   return (
     <div>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h3" gutterBottom>全体工程管理ボード</Typography>
-        <Box sx={{ display: 'flex', gap: 2 }}>
+        <Typography variant="h4" gutterBottom>全体工程管理ボード</Typography>
+        <Typography variant="h5" sx={{ flexGrow: 1, textAlign: 'center' }}>{calendarTitle}</Typography>
+        <Box sx={{ display: 'flex', gap: 2, minWidth: '60px' }}>
           {(dataError || loading) && <IconButton onClick={() => fetchData()} disabled={loading} color="primary"><ReplayIcon /></IconButton>}
         </Box>
       </Box>
@@ -357,7 +359,10 @@ export default function OverallSchedulePage() {
                 end: sixMonthsLater.toISOString().split('T')[0]
               };
             })()}
-            headerToolbar={{ left: '', center: 'title', right: '' }}
+            headerToolbar={{ left: '', center: '', right: '' }}
+            datesSet={(arg) => {
+              setCalendarTitle(arg.view.title);
+            }}
             views={{
               resourceTimelineWeekRange: {
                 type: 'resourceTimeline',
