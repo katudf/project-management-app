@@ -329,7 +329,7 @@ export default function OverallSchedulePage() {
   return (
     <div>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h4" gutterBottom>全体工程管理ボード</Typography>
+        <Typography variant="h3" gutterBottom>全体工程管理ボード</Typography>
         <Box sx={{ display: 'flex', gap: 2 }}>
           {(dataError || loading) && <IconButton onClick={() => fetchData()} disabled={loading} color="primary"><ReplayIcon /></IconButton>}
         </Box>
@@ -357,18 +357,18 @@ export default function OverallSchedulePage() {
                 end: sixMonthsLater.toISOString().split('T')[0]
               };
             })()}
-            headerToolbar={{ left: 'prev,next today', center: 'title', right: 'resourceTimelineWeekRange' }}
+            headerToolbar={{ left: 'prev,next today', center: 'title', right: '' }}
             views={{
               resourceTimelineWeekRange: {
                 type: 'resourceTimeline',
                 intervalDuration: { weeks: 1 },
                 buttonText: '6ヶ月'
               },
-              resourceTimelineSixMonths: {
+              /*resourceTimelineSixMonths: {
                 type: 'resourceTimeline',
                 duration: { months: 6 },
                 buttonText: '6ヶ月'
-              }
+              }*/
             }}
             editable={true}
             resources={resources}
