@@ -11,6 +11,7 @@ import WorkersForm from '../components/forms/WorkersForm';
 import WorkLogsForm from '../components/forms/WorkLogsForm';
 import WorkerCertificationsForm from '../components/forms/WorkerCertificationsForm';
 import CompanyHolidaysForm from '../components/forms/CompanyHolidaysForm';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button } from '@mui/material';
 
 
 interface TabPanelProps {
@@ -21,6 +22,7 @@ interface TabPanelProps {
 
 export default function DashboardPage() {
   const [value, setValue] = useState(0);
+  const [companyHolidaysFormOpen, setCompanyHolidaysFormOpen] = useState(false);
 
   const handleChange = useCallback((_: React.SyntheticEvent, newValue: number) => {
     setValue(newValue);
@@ -52,7 +54,7 @@ export default function DashboardPage() {
 
   return (
     <Box sx={{ width: '100%' }}>
-      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Tabs value={value} onChange={handleChange} aria-label="basic tabs example" variant="scrollable" scrollButtons="auto">
           <Tab label="Projects" {...a11yProps(0)} />
           <Tab label="Customers" {...a11yProps(1)} />
@@ -100,6 +102,16 @@ export default function DashboardPage() {
       <TabPanel value={value} index={10}>
         <CompanyHolidaysForm />
       </TabPanel>
+
+      <Dialog open={companyHolidaysFormOpen} onClose={() => setCompanyHolidaysFormOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>会社の休業日設定</DialogTitle>
+        <DialogContent>
+          <CompanyHolidaysForm />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCompanyHolidaysFormOpen(false)}>閉じる</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

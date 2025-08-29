@@ -9,23 +9,36 @@ interface CompanyHoliday {
 
 export const getDayClasses = (arg: DayCellContentArg, companyHolidays: CompanyHoliday[]): string[] => {
   const classNames: string[] = [];
+
+  // For 'today' class
   const today = new Date();
-  const date = arg.date;
+  const argDate = new Date(arg.date); // Create a new Date object from arg.date to avoid modifying the original
+
+  // Normalize 'today' and 'argDate' to start of day in local time for accurate comparison
+  today.setHours(0, 0, 0, 0);
+  argDate.setHours(0, 0, 0, 0);
 
   if (
-    today.getFullYear() === date.getFullYear() &&
-    today.getMonth() === date.getMonth() &&
-    today.getDate() === date.getDate()
+    today.getFullYear() === argDate.getFullYear() &&
+    today.getMonth() === argDate.getMonth() &&
+    today.getDate() === argDate.getDate()
   ) {
     classNames.push('today');
   }
 
-  const dateString = date.toISOString().split('T')[0];
-  if (companyHolidays.some(h => h.date === dateString)) {
+  // For 'company-holiday' class
+  // Format arg.date to YYYY-MM-DD string using local date components
+  const argYear = arg.date.getFullYear();
+  const argMonth = (arg.date.getMonth() + 1).toString().padStart(2, '0'); // getMonth is 0-indexed
+  const argDay = arg.date.getDate().toString().padStart(2, '0');
+  const argDateLocalFormatted = `${argYear}-${argMonth}-${argDay}`;
+
+  if (companyHolidays.some(h => h.date === argDateLocalFormatted)) {
     classNames.push('company-holiday');
   }
 
-  if (holiday_jp.isHoliday(arg.date)) {
+  // For 'holiday', 'sunday', 'saturday' classes
+  if (holiday_jp.isHoliday(arg.date)) { // holiday_jp handles its own date logic
     classNames.push('holiday');
   } else {
     const day = arg.date.getDay();

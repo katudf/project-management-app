@@ -48,7 +48,7 @@ const SortableItem = ({ id, title }: { id: string, title: string }) => {
     );
 };
 
-import CompanyHolidaysForm from '@/components/forms/CompanyHolidaysForm';
+
 
 interface CompanyHoliday {
   id: number;
@@ -60,7 +60,6 @@ export default function OverallSchedulePage() {
   const { resources, events, setEvents, loading, error: dataError, fetchData } = useScheduleData();
   const [calendarTitle, setCalendarTitle] = useState('');
   const [companyHolidays, setCompanyHolidays] = useState<CompanyHoliday[]>([]);
-  const [companyHolidaysFormOpen, setCompanyHolidaysFormOpen] = useState(false);
 
   useEffect(() => {
     const fetchCompanyHolidays = async () => {
@@ -352,7 +351,6 @@ export default function OverallSchedulePage() {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h4" gutterBottom>全体工程管理ボード</Typography>
         <Typography variant="h5" sx={{ flexGrow: 1, textAlign: 'center' }}>{calendarTitle}</Typography>
-        <Button variant="outlined" onClick={() => setCompanyHolidaysFormOpen(true)}>休業日設定</Button>
         <Box sx={{ display: 'flex', gap: 2, minWidth: '60px' }}>
           {(dataError || loading) && <IconButton onClick={() => fetchData()} disabled={loading} color="primary"><ReplayIcon /></IconButton>}
         </Box>
@@ -543,15 +541,6 @@ export default function OverallSchedulePage() {
         </DialogActions>
       </Dialog>
 
-      <Dialog open={companyHolidaysFormOpen} onClose={() => setCompanyHolidaysFormOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>会社の休業日設定</DialogTitle>
-        <DialogContent>
-          <CompanyHolidaysForm />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCompanyHolidaysFormOpen(false)}>閉じる</Button>
-        </DialogActions>
-      </Dialog>
-    </div>
+      </div>
   );
 }
