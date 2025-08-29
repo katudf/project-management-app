@@ -56,24 +56,21 @@
   background-color: #2ecc71;
   border-color: #27ae60;
   display: flex;
-  align-items: flex-start; /* これで中の要素が全部「上揃え」になる */
+  align-items: center;    /* ← タテの中央揃え */
+  justify-content: center; /* ← ヨコの​​中央揃えを追加！ */
   overflow: hidden;
 }
 
 .assignment-event-title { 
-/*  padding: 2px 5px;
-  line-height: 1;
-  overflow: hidden;
-  word-break: break-word;
-  vertical-align: text-top;
-  display: block;
-  height: 100%; 
-  box-sizing: border-box; */
-  line-height: 1.1;
-  overflow: hidden;
+  /* display: -webkit-box; などを一度削除して、代わりに↓を指定 */
+  text-align: center; /* ← 文字自体を中央揃えにする */
+  
+  /* ↓ 複数行の省略は、このまま残す */
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 4;
+  overflow: hidden;
+  line-height: 1.1;
 }
 
 /* Day cell background colors */
@@ -131,13 +128,14 @@ td.fc-timeline-slot.holiday > div,
 }
 
 /* Assignment event title line clamping */
-.fc-event.assignment-count-1 .assignment-event-title {
-}
+/* Removed empty rule set for .fc-event.assignment-count-1 .assignment-event-title */
 .fc-event.assignment-count-2 .assignment-event-title {
   -webkit-line-clamp: 2;
+  line-clamp: 2;
 }
 .fc-event.assignment-count-3 .assignment-event-title {
   -webkit-line-clamp: 1;
+  line-clamp: 1;
 }
 
 .fc-datagrid-cell-cushion {
