@@ -1,6 +1,6 @@
 // src/pages/OverallSchedulePage.tsx
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
-import { Paper, CircularProgress, Alert, Typography, Box, Button, Snackbar, IconButton, Dialog, DialogActions, DialogContent, DialogTitle, TextField, Tooltip } from '@mui/material';
+import { Paper, CircularProgress, Alert, Typography, Box, Button, Snackbar, IconButton, Dialog, DialogActions, DialogContent, DialogTitle, TextField } from '@mui/material';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -13,7 +13,7 @@ import type { EventContentArg, EventMountArg } from '@fullcalendar/core';
 import jaLocale from '@fullcalendar/core/locales/ja';
 import ReplayIcon from '@mui/icons-material/Replay';
 
-import { Menu, Item, useContextMenu, type ItemParams } from 'react-contexify';
+import { Menu, Item, useContextMenu } from 'react-contexify';
 import 'react-contexify/dist/ReactContexify.css';
 
 import { useScheduleData } from '@/hooks/useScheduleData';
@@ -252,6 +252,7 @@ export default function OverallSchedulePage() {
           if (!hasEvent) {
             newDummyEvents.push({
               id: `dummy_${worker.id}_${dateStr}`,
+              title: '',
               resourceId: worker.id,
               start: dateStr,
               end: dateStr,
@@ -312,7 +313,7 @@ export default function OverallSchedulePage() {
             e.preventDefault();
             const props = {
                 event: mountInfo.event,
-                resource: isDummy ? mountInfo.event.extendedProps.resource : resources.find(r => r.id === mountInfo.event.resourceId),
+                resource: isDummy ? mountInfo.event.extendedProps.resource : resources.find(r => r.id === (mountInfo.event as any).resourceId),
                 date: isDummy ? mountInfo.event.extendedProps.date : mountInfo.event.start
             };
             show({ event: e, props });
@@ -336,9 +337,9 @@ export default function OverallSchedulePage() {
     }
   }, [dataError]);
 
-  const isAssignment = (props: ItemParams) => props?.event?.classNames.includes(EVENT_CLASS_NAME.ASSIGNMENT);
-  const isDummy = (props: ItemParams) => !!props?.event?.extendedProps.isDummy;
-  const getAssignmentsOnDay = (props: ItemParams) => {
+  const isAssignment = (props: any) => props?.event?.classNames.includes(EVENT_CLASS_NAME.ASSIGNMENT);
+  const isDummy = (props: any) => !!props?.event?.extendedProps.isDummy;
+  const getAssignmentsOnDay = (props: any) => {
       if (!props) return [];
       const date = props.date ? formatDate(new Date(props.date).toISOString()) : props.event?.startStr;
       const resourceId = props.resource?.id || props.event?.getResources()[0]?.id;
@@ -447,9 +448,9 @@ export default function OverallSchedulePage() {
         </Paper>
       )}
       <Menu id={CONTEXT_MENU_ID}>
-        <Item hidden={({props}) => isDummy(props) || !isAssignment(props)} onClick={({props}) => handleAssignmentCopy(props.event)}>工事名コピー</Item>
-        <Item hidden={({props}) => isDummy(props) || !isAssignment(props)} onClick={({props}) => handleAssignmentCut(props.event)}>工事名切り取り</Item>
-        <Item hidden={({props}) => isDummy(props) || !isAssignment(props)} onClick={({props}) => handleAssignmentDelete(props.event)}>工事名削除</Item>
+        <Item hidden={({props}) => isDummy(props) || !isAssignment(props)} onClick={({props}) => handleAssignmentCopy((props as any).event)}>工事名コピー</Item>
+        <Item hidden={({props}) => isDummy(props) || !isAssignment(props)} onClick={({props}) => handleAssignmentCut((props as any).event)}>工事名切り取り</Item>
+        <Item hidden={({props}) => isDummy(props) || !isAssignment(props)} onClick={({props}) => handleAssignmentDelete((props as any).event)}>工事名削除</Item>
         <Item hidden={({props}) => getAssignmentsOnDay(props).length <= 1} onClick={({props}) => {
             const assignments = getAssignmentsOnDay(props);
             const sorted = [...assignments].sort((a, b) => (a.extendedProps?.assignment_order ?? 0) - (b.extendedProps?.assignment_order ?? 0));
@@ -457,20 +458,20 @@ export default function OverallSchedulePage() {
             setReorderDialogOpen(true);
         }}>この日の作業順を並び替え</Item>
         <Item onClick={({props}) => {
-            const date = props.date ? formatDate(new Date(props.date).toISOString()) : props.event.startStr;
-            const resourceId = props.resource?.id || props.event.getResources()[0]?.id;
+            const date = (props as any).date ? formatDate(new Date((props as any).date).toISOString()) : (props as any).event.startStr;
+            const resourceId = (props as any).resource?.id || (props as any).event.getResources()[0]?.id;
             setOtherAssignmentDate(date);
             setOtherAssignmentResourceId(resourceId);
             setOtherAssignmentDialogOpen(true);
         }}>その他予定を追加</Item>
         <Item disabled={!clipboard} onClick={({props}) => {
-            const date = props.date ? formatDate(new Date(props.date).toISOString()) : props.event.startStr;
-            const resourceId = props.resource?.id || props.event.getResources()[0]?.id;
+            const date = (props as any).date ? formatDate(new Date((props as any).date).toISOString()) : (props as any).event.startStr;
+            const resourceId = (props as any).resource?.id || (props as any).event.getResources()[0]?.id;
             handlePaste(resourceId, date);
         }}>工事名の貼付け</Item>
-        <Item hidden={({props}) => !isDummy(props)} onClick={({props}) => handleBlockCopy(props.resource.id, formatDate(props.date.toISOString()))}>ブロックコピー</Item>
-        <Item hidden={({props}) => !isDummy(props)} onClick={({props}) => handleBlockCut(props.resource.id, formatDate(props.date.toISOString()))}>ブロック切り取り</Item>
-        <Item hidden={({props}) => !isDummy(props)} onClick={({props}) => handleBlockDelete(props.resource.id, formatDate(props.date.toISOString()))}>ブロック削除</Item>
+        <Item hidden={({props}) => !isDummy(props)} onClick={({props}) => handleBlockCopy((props as any).resource?.id, formatDate((props as any).date.toISOString()))}>ブロックコピー</Item>
+        <Item hidden={({props}) => !isDummy(props)} onClick={({props}) => handleBlockCut((props as any).resource?.id, formatDate((props as any).date.toISOString()))}>ブロック切り取り</Item>
+        <Item hidden={({props}) => !isDummy(props)} onClick={({props}) => handleBlockDelete((props as any).resource?.id, formatDate((props as any).date.toISOString()))}>ブロック削除</Item>
       </Menu>
       <Snackbar open={notification.open} autoHideDuration={6000} onClose={handleCloseNotification}>
         <Alert onClose={handleCloseNotification} severity={notification.severity} sx={{ width: '100%' }} variant="filled">{notification.message}</Alert>

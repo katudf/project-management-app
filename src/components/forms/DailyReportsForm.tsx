@@ -59,7 +59,7 @@ export default function DailyReportsForm() {
       return;
     }
 
-    const { data, error } = await supabase.from('DailyReports').insert([
+    const { error } = await supabase.from('DailyReports').insert([
       {
         workerId: parseInt(workerId, 10),
         date,

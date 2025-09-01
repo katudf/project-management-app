@@ -18,7 +18,7 @@ export default function WorkerCertificationsForm() {
       return;
     }
 
-    const { data, error } = await supabase.from('WorkerCertifications').insert([
+    const { error } = await supabase.from('WorkerCertifications').insert([
       {
         workerId: parseInt(workerId, 10),
         name,

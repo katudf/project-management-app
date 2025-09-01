@@ -46,7 +46,7 @@ export default function MaterialsForm() {
       return;
     }
 
-    const { data, error } = await supabase.from('Materials').insert([
+    const { error } = await supabase.from('Materials').insert([
       {
         name,
         category,

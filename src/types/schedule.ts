@@ -19,6 +19,8 @@ export interface CalendarEvent {
   editable?: boolean;
   backgroundColor?: string;
   borderColor?: string;
+  textColor?: string;
+  display?: string;
   extendedProps?: any;
 }
 

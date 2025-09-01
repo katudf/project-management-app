@@ -1,5 +1,6 @@
 // src/hooks/useEventHandlers.ts
-import type { EventDropArg, EventResizeArg } from '@fullcalendar/core';
+import type { EventDropArg } from '@fullcalendar/core';
+import type { EventResizeDoneArg } from '@fullcalendar/interaction';
 import { supabase } from '../supabaseClient';
 import type { CalendarEvent, Resource } from '@/types/schedule';
 import { RESOURCE_PREFIX, EVENT_CLASS_NAME } from '@/constants/scheduleConstants';
@@ -357,8 +358,8 @@ export const useEventHandlers = (
 
 
   // --- Event Resize Handler ---
-  const handleEventResize = async (arg: EventResizeArg) => {
-    const { event, revert } = arg;
+  const handleEventResize = async (arg: EventResizeDoneArg) => {
+    const { event, revert, oldEvent } = arg;
     const originalEvents = [...events];
 
     if (event.classNames.includes(EVENT_CLASS_NAME.PROJECT_MAIN) || event.classNames.includes(EVENT_CLASS_NAME.TASK)) {
@@ -381,6 +382,11 @@ export const useEventHandlers = (
                 if (projectEvent?.start && projectEvent.end) {
                     const projectStart = new Date(projectEvent.start);
                     const projectEnd = new Date(projectEvent.end);
+                    if (!oldEvent.start || !oldEvent.end) {
+                      revert();
+                      return;
+                    }
+                    const duration = oldEvent.end.getTime() - oldEvent.start.getTime();
 
                     if (newStart < projectStart) {
                         newStart = projectStart;

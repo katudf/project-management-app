@@ -18,7 +18,7 @@ export default function WorkLogsForm() {
       return;
     }
 
-    const { data, error } = await supabase.from('WorkLogs').insert([
+    const { error } = await supabase.from('WorkLogs').insert([
       {
         dailyReportId: parseInt(dailyReportId, 10),
         projectTaskId: parseInt(projectTaskId, 10),

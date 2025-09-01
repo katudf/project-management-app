@@ -40,7 +40,7 @@ export default function MaterialUsageLogsForm() {
       return;
     }
 
-    const { data, error } = await supabase.from('MaterialUsageLogs').insert([
+    const { error } = await supabase.from('MaterialUsageLogs').insert([
       {
         dailyReportId: parseInt(dailyReportId, 10),
         materialId: parseInt(materialId, 10),

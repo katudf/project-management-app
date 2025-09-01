@@ -1,7 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
-import { TextField, Button, Box, Typography } from '@mui/material';
+import { TextField, Button, Box, Typography, Select, MenuItem, InputLabel, FormControl } from '@mui/material';
 import ProjectTasksList from './ProjectTasksList';
+
+interface Project {
+  id: number;
+  name: string;
+}
 
 export default function ProjectTasksForm() {
   const [startDate, setStartDate] = useState('');
@@ -11,6 +16,19 @@ export default function ProjectTasksForm() {
   const [projectId, setProjectId] = useState('');
   const [serviceMasterId, setServiceMasterId] = useState('');
   const [message, setMessage] = useState('');
+  const [projects, setProjects] = useState<Project[]>([]);
+
+  useEffect(() => {
+    const fetchProjects = async () => {
+      const { data, error } = await supabase.from('projects').select('id, name');
+      if (error) {
+        console.error('Error fetching projects:', error);
+      } else {
+        setProjects(data);
+      }
+    };
+    fetchProjects();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,7 +39,7 @@ export default function ProjectTasksForm() {
       return;
     }
 
-    const { data, error } = await supabase.from('ProjectTasks').insert([
+    const { error } = await supabase.from('ProjectTasks').insert([
       {
         startDate,
         endDate,
@@ -53,7 +71,22 @@ export default function ProjectTasksForm() {
       </Typography>
       <form onSubmit={handleSubmit}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 400 }}>
-          <TextField label="プロジェクトID" type="number" value={projectId} onChange={(e) => setProjectId(e.target.value)} required />
+          <FormControl fullWidth required>
+            <InputLabel id="project-select-label">プロジェクト</InputLabel>
+            <Select
+              labelId="project-select-label"
+              id="project-select"
+              value={projectId}
+              label="プロジェクト"
+              onChange={(e) => setProjectId(e.target.value)}
+            >
+              {projects.map((project) => (
+                <MenuItem key={project.id} value={project.id}>
+                  {project.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
           <TextField label="開始日" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} InputLabelProps={{ shrink: true }} />
           <TextField label="終了日" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} InputLabelProps={{ shrink: true }} />
           <TextField label="順番" type="number" value={order} onChange={(e) => setOrder(e.target.value)} />

@@ -18,7 +18,7 @@ export default function ServiceMasterForm() {
       return;
     }
 
-    const { data, error } = await supabase.from('ServiceMaster').insert([
+    const { error } = await supabase.from('ServiceMaster').insert([
       {
         name,
         category,

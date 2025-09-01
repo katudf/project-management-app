@@ -50,7 +50,7 @@ export default function WorkersForm() {
       return;
     }
 
-    const { data, error } = await supabase.from('Workers').insert([
+    const { error } = await supabase.from('Workers').insert([
       {
         name,
         order: order ? parseInt(order, 10) : null,
