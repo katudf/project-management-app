@@ -45,7 +45,7 @@ unitPrice: 単価 (bigint)
 colorInfo: 色情報 (text)
 packagingOptions: 荷姿 (jsonb)
 
-ProjectTasks（プロジェクトタスク）
+ProjectTasks（プロジェクトタスク：案件のタスク）
 id: 番号 (bigint)
 created_at: 作成日時 (timestamp with time zone)
 startDate: 開始日 (date)
@@ -55,7 +55,7 @@ status: ステータス (text)
 projectId: プロジェクトID (bigint)
 serviceMasterId: サービスマスターID (bigint)
 
-Projects（プロジェクト）
+Projects（プロジェクト：案件名）
 id: 番号 (bigint)
 created_at: 作成日時 (timestamp with time zone)
 name: 名前 (text)

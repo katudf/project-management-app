@@ -23,15 +23,18 @@ export const useScheduleData = () => {
         { data: projectsData, error: projectsError },
         { data: workersData, error: workersError },
         { data: assignmentsData, error: assignmentsError },
+        { data: projectTasksData, error: projectTasksError },
       ] = await Promise.all([
         supabase.from('Projects').select('*').order('display_order', { ascending: true }),
         supabase.from('Workers').select('*').order('display_order', { ascending: true }),
         supabase.from('Assignments').select('*').order('assignment_order', { ascending: true }),
+        supabase.from('ProjectTasks').select('*').order('order', { ascending: true }),
       ]);
 
       if (projectsError) throw new Error(`Projects取得失敗: ${projectsError.message}`);
       if (workersError) throw new Error(`Workers取得失敗: ${workersError.message}`);
       if (assignmentsError) throw new Error(`Assignments取得失敗: ${assignmentsError.message}`);
+      if (projectTasksError) throw new Error(`ProjectTasks取得失敗: ${projectTasksError.message}`);
 
       // リソース構築
       const projectResources: Resource[] = projectsData.map(project => ({
@@ -40,6 +43,15 @@ export const useScheduleData = () => {
         title: project.name,
         order: project.display_order,
       }));
+
+      const taskResources: Resource[] = projectTasksData.map(task => ({
+        id: `${RESOURCE_PREFIX.TASK}${task.id}`,
+        group: 'projects',
+        title: task.status || '無題のタスク',
+        parentId: `${RESOURCE_PREFIX.PROJECT}${task.projectId}`,
+        order: task.order,
+      }));
+
       const workerResources: Resource[] = workersData.map(worker => ({
         id: `${RESOURCE_PREFIX.WORKER}${worker.id}`,
         group: 'workers',
@@ -50,7 +62,7 @@ export const useScheduleData = () => {
           age: worker.birthDate ? calculateAge(worker.birthDate) : undefined,
         }
       }));
-      setResources([...projectResources, ...workerResources]);
+      setResources([...projectResources, ...taskResources, ...workerResources]);
 
       // イベント構築
       const projectEvents: CalendarEvent[] = projectsData.map(project => {
@@ -72,6 +84,26 @@ export const useScheduleData = () => {
         }
         return event;
       });
+
+      const taskEvents: CalendarEvent[] = projectTasksData.map(task => {
+        const project = projectsData.find(p => p.id === task.projectId);
+        const endDate = task.endDate ? new Date(new Date(task.endDate).getTime() + 86400000).toISOString().split('T')[0] : task.startDate;
+        const event: CalendarEvent = {
+          id: `${RESOURCE_PREFIX.TASK_BAR}${task.id}`,
+          resourceId: `${RESOURCE_PREFIX.TASK}${task.id}`,
+          title: task.status || '無題のタスク',
+          start: task.startDate,
+          end: endDate,
+          className: EVENT_CLASS_NAME.TASK,
+          editable: true,
+        };
+        if (project && project.bar_color) {
+          event.backgroundColor = project.bar_color;
+          event.borderColor = project.bar_color;
+        }
+        return event;
+      });
+
       const assignmentEvents: CalendarEvent[] = assignmentsData.map(assignment => {
         const project = projectsData.find(p => p.id == assignment.projectId);
         const isOtherAssignment = !assignment.projectId && assignment.title;
@@ -95,7 +127,7 @@ export const useScheduleData = () => {
         }
         return event;
       });
-      setEvents([...projectEvents, ...assignmentEvents]);
+      setEvents([...projectEvents, ...taskEvents, ...assignmentEvents]);
     } catch (e: any) {
       console.error('データ取得エラー:', e);
       setError(e.message || '不明なエラーが発生しました。');

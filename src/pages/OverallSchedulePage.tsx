@@ -410,8 +410,6 @@ export default function OverallSchedulePage() {
               {
                 headerContent: 'リソース名',
                 cellContent: (arg) => {
-                  console.log('Resource object in cellContent:', arg.resource);
-
                   const { resource } = arg;
                   if (resource._resource.extendedProps && resource._resource.extendedProps.group === 'workers') {
                     const { birthDate, age } = resource._resource.extendedProps;
