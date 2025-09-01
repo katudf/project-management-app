@@ -7,17 +7,12 @@
 
 /* General FullCalendar layout and event styling */
 .fc-resource-timeline .fc-timeline-lane[data-resource-id^="proj_"] .fc-timeline-lane-frame { height: 20px !important; }
+.fc-resource-timeline .fc-timeline-lane[data-resource-id^="task_"] .fc-timeline-lane-frame { height: 20px !important; }
 .fc-resource-timeline .fc-timeline-lane[data-resource-id^="work_"] .fc-timeline-lane-frame { height: 60px !important; }
-.fc-datagrid-cell[data-resource-id^="proj_"] .fc-datagrid-cell-frame { height: 20px !important; font-size: 12px; display: flex; align-items: center; }
-.fc-datagrid-cell[data-resource-id^="work_"] .fc-datagrid-cell-frame { height: 60px !important; }
 
-/* タスクの行の高さ（例として20pxに設定） */
-.fc-datagrid-cell[data-resource-id^="task_"] .fc-datagrid-cell-frame { 
-  height: 20px !important; 
-  font-size: 11px; /* フォントサイズを少し小さくするなどの調整も可能です */
-  display: flex; 
-  align-items: center; 
-}
+.fc-datagrid-cell[data-resource-id^="proj_"] .fc-datagrid-cell-frame { height: 20px !important; font-size: 12px; display: flex; align-items: center; }
+.fc-datagrid-cell[data-resource-id^="task_"] .fc-datagrid-cell-frame { height: 20px !important; font-size: 11px; display: flex; align-items: center; padding-left: 15px; }
+.fc-datagrid-cell[data-resource-id^="work_"] .fc-datagrid-cell-frame { height: 60px !important; }
 
 .fc-timeline-event.fc-event-main, .fc-timeline-event.fc-event-main .fc-event-main-frame {
   border-radius: 10px !important;
@@ -54,13 +49,7 @@
   color: #1a5276;
   font-weight: bold;
 }
-/* タスクの行の高さ（例として20pxに設定） */
-.fc-datagrid-cell[data-resource-id^="task_"] .fc-datagrid-cell-frame { 
-  height: 20px ; 
-  font-size: 11px; /* フォントサイズを少し小さくするなどの調整も可能です */
-  display: flex; 
-  align-items: center; 
-}
+
 .fc-event.task-event { 
   background-color: #3498db;
   border-color: #2980b9;
