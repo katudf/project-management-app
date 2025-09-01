@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '../../supabaseClient';
 import { TextField, Button, Box, Typography } from '@mui/material';
+import ProjectTasksList from './ProjectTasksList';
 
 export default function ProjectTasksForm() {
   const [startDate, setStartDate] = useState('');
@@ -64,6 +65,7 @@ export default function ProjectTasksForm() {
         </Box>
       </form>
       {message && <Typography sx={{ mt: 2 }}>{message}</Typography>}
+      <ProjectTasksList />
     </Box>
   );
 }
