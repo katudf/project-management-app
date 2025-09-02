@@ -4,7 +4,7 @@ import { supabase } from '@/supabaseClient';
 import type { CalendarEvent, Resource } from '@/types/schedule';
 import { RESOURCE_PREFIX, EVENT_CLASS_NAME } from '@/constants/scheduleConstants';
 import { getDuration, formatDate, calculateAge } from '@/utils/dateUtils';
-import { getComplementaryColor } from '@/utils/colorUtils';
+import { getContrastTextColor } from '@/utils/colorUtils';
 
 /**
  * スケジュール、リソース、イベントに関するデータを取得し、整形するカスタムフック
@@ -82,7 +82,7 @@ export const useScheduleData = () => {
         if (project.bar_color) {
           event.backgroundColor = project.bar_color;
           event.borderColor = project.bar_color;
-          event.textColor = getComplementaryColor(project.bar_color);
+          event.textColor = getContrastTextColor(project.bar_color);
         }
         return event;
       });
@@ -102,7 +102,7 @@ export const useScheduleData = () => {
         if (project && project.bar_color) {
           event.backgroundColor = project.bar_color;
           event.borderColor = project.bar_color;
-          event.textColor = getComplementaryColor(project.bar_color);
+          event.textColor = getContrastTextColor(project.bar_color);
         }
         return event;
       });
@@ -127,7 +127,7 @@ export const useScheduleData = () => {
         } else if (project && project.bar_color) {
           event.backgroundColor = project.bar_color;
           event.borderColor = project.bar_color;
-          event.textColor = getComplementaryColor(project.bar_color);
+          event.textColor = getContrastTextColor(project.bar_color);
         }
         return event;
       });

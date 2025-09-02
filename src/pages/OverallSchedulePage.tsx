@@ -172,10 +172,12 @@ export default function OverallSchedulePage() {
     const { error } = await supabase.from('Projects').update({ name: projectEditFormData.name, bar_color: projectEditFormData.bar_color }).eq('id', editingProject.id);
     if (error) {
       showNotification(`プロジェクトの更新に失敗しました: ${error.message}`, 'error');
+    } else {
+      await fetchData();
+      showNotification('プロジェクトを更新しました。', 'success');
     }
-    await handleAddOtherAssignment(otherAssignmentTitle, otherAssignmentDate, otherAssignmentResourceId);
     handleCloseDialog();
-  }, [otherAssignmentTitle, otherAssignmentDate, otherAssignmentResourceId, handleAddOtherAssignment, showNotification, handleCloseDialog]);
+  }, [editingProject, projectEditFormData, showNotification, handleCloseDialog, fetchData]);
 
   const handleSaveReorder = async () => {
       await handleReorderAssignments(reorderableAssignments);
@@ -297,7 +299,8 @@ export default function OverallSchedulePage() {
     const title = event.title;
     const isAssignment = event.classNames.includes(EVENT_CLASS_NAME.ASSIGNMENT);
     const className = isAssignment ? "assignment-event-title" : "event-title";
-    return <div className={className}>{title}</div>;
+    const style = { color: event.textColor };
+    return <div className={className} style={style}>{title}</div>;
   };
 
   const handleEventMount = (mountInfo: EventMountArg) => {
@@ -386,7 +389,6 @@ export default function OverallSchedulePage() {
             views={{
               resourceTimelineWeekRange: {
                 type: 'resourceTimeline',
-                intervalDuration: { weeks: 1 },
                 buttonText: '6ヶ月'
               },
               /*resourceTimelineSixMonths: {
