@@ -7,6 +7,7 @@ export interface Resource {
   display_order?: number;
   parentId?: string;
   extendedProps?: any;
+  expanded?: boolean;
 }
 
 export interface CalendarEvent {

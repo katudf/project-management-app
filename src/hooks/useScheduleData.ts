@@ -38,11 +38,13 @@ export const useScheduleData = () => {
       if (projectTasksError) throw new Error(`ProjectTasks取得失敗: ${projectTasksError.message}`);
 
       // リソース構築
+      const projectsWithTasks = new Set(projectTasksData.map(task => task.projectId));
       const projectResources: Resource[] = projectsData.map(project => ({
         id: `${RESOURCE_PREFIX.PROJECT}${project.id}`,
         group: 'projects',
         title: project.name,
         order: project.display_order,
+        expanded: !projectsWithTasks.has(project.id),
       }));
 
       const taskResources: Resource[] = projectTasksData.map(task => ({
