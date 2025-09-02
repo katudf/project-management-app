@@ -26,6 +26,8 @@ export const useEventHandlers = (
 ) => {
 
   // --- Event Drop Handler ---
+  // Handles drag-and-drop for Project, ProjectTask, and Assignment events.
+  // Assignment events (task bars) are handled in section 3 for moves/copies.
   const handleEventDrop = async (arg: EventDropArg) => {
     const { event, oldEvent, revert, newResource } = arg;
     const originalEvents = [...events];
@@ -363,12 +365,11 @@ export const useEventHandlers = (
     const originalEvents = [...events];
 
     if (event.classNames.includes(EVENT_CLASS_NAME.PROJECT_MAIN) || event.classNames.includes(EVENT_CLASS_NAME.TASK)) {
-        const isProject = event.classNames.includes(EVENT_CLASS_NAME.PROJECT_MAIN);
         let newStart = new Date(event.startStr);
         let newEnd = new Date(event.endStr);
 
         // --- Task boundary check ---
-        if (!isProject) {
+        if (!event.classNames.includes(EVENT_CLASS_NAME.PROJECT_MAIN)) {
             const ourEvent = originalEvents.find((e: CalendarEvent) => e.id === event.id);
             const taskResource = resources.find((r: Resource) => r.id === ourEvent?.resourceId);
 
@@ -411,14 +412,14 @@ export const useEventHandlers = (
         const newEndStr = newEnd.toISOString().split('T')[0];
         const dbEndDate = new Date(newEnd.getTime() - 1).toISOString().split('T')[0];
         
-        const table = isProject ? 'Projects' : 'ProjectTasks';
-        const id = Number(event.id.replace(isProject ? RESOURCE_PREFIX.PROJECT_MAIN : RESOURCE_PREFIX.TASK_BAR, ''));
+        const table = event.classNames.includes(EVENT_CLASS_NAME.PROJECT_MAIN) ? 'Projects' : 'ProjectTasks';
+        const id = Number(event.id.replace(event.classNames.includes(EVENT_CLASS_NAME.PROJECT_MAIN) ? RESOURCE_PREFIX.PROJECT_MAIN : RESOURCE_PREFIX.TASK_BAR, ''));
 
         // Optimistic UI Update
         setEvents(prev => prev.map((e: CalendarEvent) => {
             if (e.id === event.id) {
                 const updatedEvent = { ...e, start: newStartStr, end: newEndStr };
-                if (isProject) {
+                if (event.classNames.includes(EVENT_CLASS_NAME.PROJECT_MAIN)) {
                     const name = resources.find((r: Resource) => r.id === updatedEvent.resourceId)?.title || '';
                     const displayDuration = getDuration(newStartStr, newEndStr);
                     updatedEvent.title = `${name} (${formatDate(newStartStr)}～${dbEndDate} ${displayDuration}日間)`;
@@ -439,6 +440,10 @@ export const useEventHandlers = (
             showNotification('期間の変更に失敗しました。', 'error');
             setEvents(originalEvents);
         }
+        return;
+    } else if (event.classNames.includes(EVENT_CLASS_NAME.ASSIGNMENT)) {
+        revert();
+        showNotification('人員配置は単日イベントのため、期間の変更はできません。', 'warning');
         return;
     }
 

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
 import { deleteProject } from '../../utils/deleteUtils';
-import { TextField, Button, Box, Typography, Checkbox, FormControlLabel, Select, MenuItem, InputLabel, FormControl, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper } from '@mui/material';
+import { TextField, Button, Box, Typography, Checkbox, FormControlLabel, Select, MenuItem, InputLabel, FormControl, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, TableSortLabel } from '@mui/material';
 import { SketchPicker, type ColorResult } from 'react-color';
 
 interface Customer {
@@ -50,12 +50,14 @@ export default function ProjectsForm() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [orderBy, setOrderBy] = useState<string>('created_at');
+  const [orderDirection, setOrderDirection] = useState<'asc' | 'desc'>('desc');
 
   const fetchProjects = async () => {
     const { data, error } = await supabase
       .from('Projects')
       .select('*, Customers ( name )')
-      .order('created_at', { ascending: false });
+      .order(orderBy, { ascending: orderDirection === 'asc' });
     if (error) {
       console.error('Error fetching projects:', error);
     } else {
@@ -74,7 +76,13 @@ export default function ProjectsForm() {
     };
     fetchCustomers();
     fetchProjects();
-  }, []);
+  }, [orderBy, orderDirection]);
+
+  const handleRequestSort = (property: string) => {
+    const isAsc = orderBy === property && orderDirection === 'asc';
+    setOrderDirection(isAsc ? 'desc' : 'asc');
+    setOrderBy(property);
+  };
 
   const resetForm = () => {
     setCustomerId('');
@@ -313,11 +321,51 @@ export default function ProjectsForm() {
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell>案件名</TableCell>
-              <TableCell>顧客名</TableCell>
-              <TableCell>工事期間</TableCell>
-              <TableCell>ステータス</TableCell>
-              <TableCell>作成日</TableCell>
+              <TableCell sortDirection={orderBy === 'name' ? orderDirection : false}>
+                <TableSortLabel
+                  active={orderBy === 'name'}
+                  direction={orderBy === 'name' ? orderDirection : 'asc'}
+                  onClick={() => handleRequestSort('name')}
+                >
+                  案件名
+                </TableSortLabel>
+              </TableCell>
+              <TableCell sortDirection={orderBy === 'customerId' ? orderDirection : false}>
+                <TableSortLabel
+                  active={orderBy === 'customerId'}
+                  direction={orderBy === 'customerId' ? orderDirection : 'asc'}
+                  onClick={() => handleRequestSort('customerId')}
+                >
+                  顧客名
+                </TableSortLabel>
+              </TableCell>
+              <TableCell sortDirection={orderBy === 'startDate' ? orderDirection : false}>
+                <TableSortLabel
+                  active={orderBy === 'startDate'}
+                  direction={orderBy === 'startDate' ? orderDirection : 'asc'}
+                  onClick={() => handleRequestSort('startDate')}
+                >
+                  工事期間
+                </TableSortLabel>
+              </TableCell>
+              <TableCell sortDirection={orderBy === 'status' ? orderDirection : false}>
+                <TableSortLabel
+                  active={orderBy === 'status'}
+                  direction={orderBy === 'status' ? orderDirection : 'asc'}
+                  onClick={() => handleRequestSort('status')}
+                >
+                  ステータス
+                </TableSortLabel>
+              </TableCell>
+              <TableCell sortDirection={orderBy === 'created_at' ? orderDirection : false}>
+                <TableSortLabel
+                  active={orderBy === 'created_at'}
+                  direction={orderBy === 'created_at' ? orderDirection : 'asc'}
+                  onClick={() => handleRequestSort('created_at')}
+                >
+                  作成日
+                </TableSortLabel>
+              </TableCell>
               <TableCell>編集</TableCell>
               <TableCell>削除</TableCell>
             </TableRow>
