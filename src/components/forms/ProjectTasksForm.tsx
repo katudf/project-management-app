@@ -20,7 +20,7 @@ export default function ProjectTasksForm() {
 
   useEffect(() => {
     const fetchProjects = async () => {
-      const { data, error } = await supabase.from('projects').select('id, name');
+      const { data, error } = await supabase.from('Projects').select('id, name').order('created_at', { ascending: false });
       if (error) {
         console.error('Error fetching projects:', error);
       } else {
