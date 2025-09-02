@@ -28,6 +28,7 @@ interface Project {
   Customers: {
     name: string;
   } | null;
+  created_at: string;
 }
 
 export default function ProjectsForm() {
@@ -53,7 +54,8 @@ export default function ProjectsForm() {
   const fetchProjects = async () => {
     const { data, error } = await supabase
       .from('Projects')
-      .select('*, Customers ( name )');
+      .select('*, Customers ( name )')
+      .order('created_at', { ascending: false });
     if (error) {
       console.error('Error fetching projects:', error);
     } else {
@@ -315,6 +317,7 @@ export default function ProjectsForm() {
               <TableCell>顧客名</TableCell>
               <TableCell>工事期間</TableCell>
               <TableCell>ステータス</TableCell>
+              <TableCell>作成日</TableCell>
               <TableCell>編集</TableCell>
               <TableCell>削除</TableCell>
             </TableRow>
@@ -326,6 +329,7 @@ export default function ProjectsForm() {
                 <TableCell>{project.Customers?.name}</TableCell>
                 <TableCell>{project.startDate} ~ {project.endDate}</TableCell>
                 <TableCell>{project.status}</TableCell>
+                <TableCell>{new Date(project.created_at).toLocaleString()}</TableCell>
                 <TableCell>
                   <Button variant="contained" color="primary" onClick={() => handleEdit(project)}>
                     編集
