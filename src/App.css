@@ -176,3 +176,15 @@ td.fc-timeline-slot.company-holiday > div,
   padding-right: 8px; /* ボタンとの間に少し余白を追加 */
   box-sizing: border-box; /* パディングを幅に含める */
 }
+
+/* --- ドラッグ&ドロップ改善のためのCSS --- */
+
+/* コピーモード（Altキー押下中）のカーソル変更 */
+.copy-mode .fc-event-dragging {
+  cursor: copy !important;
+}
+
+/* ドロップ不可セルの背景色を変更 */
+.fc-timeline-slot.drop-invalid {
+  background-color: rgba(255, 0, 0, 0.2) !important;
+}

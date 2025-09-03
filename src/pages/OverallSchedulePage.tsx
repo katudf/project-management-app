@@ -48,8 +48,6 @@ const SortableItem = ({ id, title }: { id: string, title: string }) => {
     );
 };
 
-
-
 interface CompanyHoliday {
   id: number;
   date: string;
@@ -60,6 +58,43 @@ export default function OverallSchedulePage() {
   const { resources, events, setEvents, loading, error: dataError, fetchData } = useScheduleData();
   const [calendarTitle, setCalendarTitle] = useState('');
   const [companyHolidays, setCompanyHolidays] = useState<CompanyHoliday[]>([]);
+  const [isCopyMode, setIsCopyMode] = useState(false);
+  const [draggedBlock, setDraggedBlock] = useState<CalendarEvent[]>([]);
+
+  const calendarRef = useRef<FullCalendar | null>(null);
+  const lastHoveredCellRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Alt' && !isCopyMode) {
+        setIsCopyMode(true);
+      }
+    };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Alt' && isCopyMode) {
+        setIsCopyMode(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [isCopyMode]);
+
+  const assignmentCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    events
+      .filter(e => e.className === EVENT_CLASS_NAME.ASSIGNMENT)
+      .forEach(e => {
+        if (e.resourceId && e.start) {
+          const key = `${e.resourceId}_${e.start}`;
+          counts.set(key, (counts.get(key) || 0) + 1);
+        }
+      });
+    return counts;
+  }, [events]);
 
   useEffect(() => {
     const fetchCompanyHolidays = async () => {
@@ -238,7 +273,60 @@ export default function OverallSchedulePage() {
     }
   }
 
-  const calendarRef = useRef<FullCalendar | null>(null);
+  const handleEventDragStart = useCallback((dragInfo: any) => {
+    const { event } = dragInfo;
+    if (event.classNames.includes(EVENT_CLASS_NAME.ASSIGNMENT)) {
+      const block = events.filter(e =>
+        e.resourceId === event.resourceId &&
+        e.start === event.startStr &&
+        e.className?.includes(EVENT_CLASS_NAME.ASSIGNMENT)
+      );
+      setDraggedBlock(block);
+    } else {
+      setDraggedBlock([event]);
+    }
+  }, [events]);
+
+  const handleEventAllow = useCallback((dropInfo: any, draggedEvent: any) => {
+    if (lastHoveredCellRef.current) {
+      lastHoveredCellRef.current.classList.remove('drop-invalid');
+      lastHoveredCellRef.current = null;
+    }
+
+    const targetResourceId = dropInfo.resource.id;
+    const targetDate = formatDate(dropInfo.start);
+
+    if (!draggedEvent.classNames.includes(EVENT_CLASS_NAME.ASSIGNMENT) || !targetResourceId.startsWith(RESOURCE_PREFIX.WORKER)) {
+      return true;
+    }
+
+    const currentCount = assignmentCounts.get(`${targetResourceId}_${targetDate}`) || 0;
+    const draggedCount = draggedBlock.length > 0 ? draggedBlock.length : 1;
+
+    const isAllowed = currentCount + draggedCount <= 3;
+
+    if (!isAllowed) {
+      const calendarEl = calendarRef.current?.getApi().el;
+      if (calendarEl) {
+        const cellSelector = `tr[data-resource-id='${targetResourceId}'] .fc-timeline-slot[data-date='${targetDate}']`;
+        const cellEl = calendarEl.querySelector(cellSelector) as HTMLElement;
+        if (cellEl) {
+          cellEl.classList.add('drop-invalid');
+          lastHoveredCellRef.current = cellEl;
+        }
+      }
+    }
+
+    return isAllowed;
+  }, [assignmentCounts, draggedBlock, calendarRef]);
+
+  const handleEventDragStop = useCallback(() => {
+    if (lastHoveredCellRef.current) {
+      lastHoveredCellRef.current.classList.remove('drop-invalid');
+      lastHoveredCellRef.current = null;
+    }
+    setDraggedBlock([]);
+  }, []);
 
   useEffect(() => {
     if (!loading && calendarRef.current) {
@@ -355,7 +443,7 @@ export default function OverallSchedulePage() {
   };
 
   return (
-    <div>
+    <div className={isCopyMode ? 'copy-mode' : ''}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h4" gutterBottom>全体工程管理ボード</Typography>
         <Typography variant="h5" sx={{ flexGrow: 1, textAlign: 'center' }}>{calendarTitle}</Typography>
@@ -413,6 +501,9 @@ export default function OverallSchedulePage() {
             eventContent={renderEventContent}
             eventDidMount={handleEventMount}
             eventClick={handleEventClick}
+            eventDragStart={handleEventDragStart}
+            eventDragStop={handleEventDragStop}
+            eventAllow={handleEventAllow}
             resourceAreaColumns={[
               {
                 headerContent: 'リソース名',
