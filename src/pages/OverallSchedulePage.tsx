@@ -342,6 +342,10 @@ export default function OverallSchedulePage() {
 
   const isAssignment = (props: any) => props?.event?.classNames.includes(EVENT_CLASS_NAME.ASSIGNMENT);
   const isDummy = (props: any) => !!props?.event?.extendedProps.isDummy;
+  const isWorker = (props: any) => {
+    const resource = props?.resource || props?.event?.getResources()[0];
+    return resource?.group === 'workers';
+  };
   const getAssignmentsOnDay = (props: any) => {
       if (!props) return [];
       const date = props.date ? formatDate(new Date(props.date).toISOString()) : props.event?.startStr;
@@ -453,7 +457,7 @@ export default function OverallSchedulePage() {
         <Item hidden={({props}) => isDummy(props) || !isAssignment(props)} onClick={({props}) => handleAssignmentCopy((props as any).event)}>工事名コピー</Item>
         <Item hidden={({props}) => isDummy(props) || !isAssignment(props)} onClick={({props}) => handleAssignmentCut((props as any).event)}>工事名切り取り</Item>
         <Item hidden={({props}) => isDummy(props) || !isAssignment(props)} onClick={({props}) => handleAssignmentDelete((props as any).event)}>工事名削除</Item>
-        <Item hidden={({props}) => getAssignmentsOnDay(props).length <= 1} onClick={({props}) => {
+        <Item hidden={({props}) => isDummy(props) || getAssignmentsOnDay(props).length <= 1} onClick={({props}) => {
             const assignments = getAssignmentsOnDay(props);
             const sorted = [...assignments].sort((a, b) => (a.extendedProps?.assignment_order ?? 0) - (b.extendedProps?.assignment_order ?? 0));
             setReorderableAssignments(sorted);
@@ -471,9 +475,9 @@ export default function OverallSchedulePage() {
             const resourceId = (props as any).resource?.id || (props as any).event.getResources()[0]?.id;
             handlePaste(resourceId, date);
         }}>工事名の貼付け</Item>
-        <Item hidden={({props}) => !isDummy(props)} onClick={({props}) => handleBlockCopy((props as any).resource?.id, formatDate((props as any).date.toISOString()))}>ブロックコピー</Item>
-        <Item hidden={({props}) => !isDummy(props)} onClick={({props}) => handleBlockCut((props as any).resource?.id, formatDate((props as any).date.toISOString()))}>ブロック切り取り</Item>
-        <Item hidden={({props}) => !isDummy(props)} onClick={({props}) => handleBlockDelete((props as any).resource?.id, formatDate((props as any).date.toISOString()))}>ブロック削除</Item>
+        <Item hidden={({props}) => !isDummy(props) || isWorker(props)} onClick={({props}) => handleBlockCopy((props as any).resource?.id, formatDate((props as any).date.toISOString()))}>ブロックコピー</Item>
+        <Item hidden={({props}) => !isDummy(props) || isWorker(props)} onClick={({props}) => handleBlockCut((props as any).resource?.id, formatDate((props as any).date.toISOString()))}>ブロック切り取り</Item>
+        <Item hidden={({props}) => !isDummy(props) || isWorker(props)} onClick={({props}) => handleBlockDelete((props as any).resource?.id, formatDate((props as any).date.toISOString()))}>ブロック削除</Item>
       </Menu>
       <Snackbar open={notification.open} autoHideDuration={6000} onClose={handleCloseNotification}>
         <Alert onClose={handleCloseNotification} severity={notification.severity} sx={{ width: '100%' }} variant="filled">{notification.message}</Alert>
