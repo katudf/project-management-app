@@ -47,7 +47,8 @@ export default function ProjectsPage() {
       setLoading(true);
       const { data, error } = await supabase
         .from('Projects')
-        .select('*, Customers ( name )');
+        .select('*, Customers ( name )')
+        .order('created_at', { ascending: false });
       if (error) {
         console.error('Error fetching projects:', error);
       } else if (data) {
