@@ -8,11 +8,11 @@ import { getDuration, formatDate } from '@/utils/dateUtils';
 
 type NotificationHandler = (message: string, severity?: 'success' | 'error' | 'info' | 'warning') => void;
 
-// --- MODIFIED CLIPBOARD TYPES ---
 type ClipboardEventData = {
   event: CalendarEvent;
   projectId: number | null;
-  offsetDays: number; // Offset in days from the baseDate
+  offsetDays: number;
+  offsetResourceIndex: number;
 };
 
 export type ClipboardData = {
@@ -31,7 +31,6 @@ export const useEventHandlers = (
   fetchData: () => Promise<void>
 ) => {
 
-  // --- Event Drop Handler (Unchanged) ---
   const handleEventDrop = async (arg: EventDropArg) => {
     const { event, oldEvent, revert, newResource } = arg;
     const originalEvents = [...events];
@@ -312,7 +311,6 @@ export const useEventHandlers = (
     revert();
   };
 
-  // --- Event Resize Handler (Unchanged) ---
   const handleEventResize = async (arg: EventResizeDoneArg) => {
     const { event, revert, oldEvent } = arg;
     const originalEvents = [...events];
@@ -400,7 +398,6 @@ export const useEventHandlers = (
     revert();
   };
 
-  // --- Event Update Handler (Unchanged) ---
   const handleEventUpdate = async (updatedEvent: CalendarEvent): Promise<boolean> => {
     const originalEvents = [...events];
     const { id, start } = updatedEvent;
@@ -432,28 +429,37 @@ export const useEventHandlers = (
     }
   };
 
-  // --- MODIFIED handleAssignmentCopy ---
   const handleAssignmentCopy = (targetEvents: CalendarEvent[]) => {
     if (targetEvents.length === 0) return;
 
     const allDates = targetEvents.map(e => new Date(e.start).getTime());
     const baseDate = new Date(Math.min(...allDates));
 
+    const workerResources = resources.filter(r => r.id.startsWith(RESOURCE_PREFIX.WORKER));
+    const baseEvent = targetEvents[0];
+    const baseResourceIndex = workerResources.findIndex(r => r.id === baseEvent.resourceId);
+
     const clipboardBlockData: ClipboardEventData[] = targetEvents.map((event: CalendarEvent) => {
       const projectResource = resources.find((r: Resource) => r.title === event.title && r.group === 'projects');
       const projectId = projectResource ? Number(projectResource.id.replace('proj_', '')) : null;
       
       const eventDate = new Date(event.start);
-      const offsetDays = Math.round((eventDate.getTime() - baseDate.getTime()) / (1000 * 60 * 60 * 24));
+      const utcEventDate = Date.UTC(eventDate.getUTCFullYear(), eventDate.getUTCMonth(), eventDate.getUTCDate());
+      const utcBaseDate = Date.UTC(baseDate.getUTCFullYear(), baseDate.getUTCMonth(), baseDate.getUTCDate());
+      const offsetDays = (utcEventDate - utcBaseDate) / (1000 * 60 * 60 * 24);
 
-      return { event, projectId, offsetDays };
+      const eventResourceIndex = workerResources.findIndex(r => r.id === event.resourceId);
+      const offsetResourceIndex = (baseResourceIndex !== -1 && eventResourceIndex !== -1) 
+                                  ? eventResourceIndex - baseResourceIndex 
+                                  : 0;
+
+      return { event, projectId, offsetDays, offsetResourceIndex };
     });
 
     setClipboard({ type: 'block', data: clipboardBlockData });
     showNotification(`${targetEvents.length}件の工事名をコピーしました。`, 'success');
   };
 
-  // --- handleAssignmentCut (Unchanged but uses new copy) ---
   const handleAssignmentCut = async (targetEvents: CalendarEvent[]) => {
     if (targetEvents.length === 0) return;
     handleAssignmentCopy(targetEvents);
@@ -461,7 +467,6 @@ export const useEventHandlers = (
     showNotification(`${targetEvents.length}件の工事名を切り取りました。`, 'success');
   };
 
-  // --- handleAssignmentDelete (Unchanged) ---
   const handleAssignmentDelete = async (targetEvents: CalendarEvent[], showSuccessNotification = true) => {
     if (targetEvents.length === 0) return;
     const originalEvents = [...events];
@@ -481,14 +486,13 @@ export const useEventHandlers = (
     }
   };
 
-  // --- MODIFIED handleBlockCopy ---
   const handleBlockCopy = (resourceId: string, date: string) => {
     const eventsToCopy = events.filter((e: CalendarEvent) => e.resourceId === resourceId && e.start === date);
     if (eventsToCopy.length > 0) {
       const clipboardBlockData: ClipboardEventData[] = eventsToCopy.map((event: CalendarEvent) => {
         const projectResource = resources.find((r: Resource) => r.title === event.title && r.group === 'projects');
         const projectId = projectResource ? Number(projectResource.id.replace('proj_', '')) : null;
-        return { event, projectId, offsetDays: 0 };
+        return { event, projectId, offsetDays: 0, offsetResourceIndex: 0 };
       });
 
       setClipboard({ type: 'block', data: clipboardBlockData });
@@ -496,13 +500,11 @@ export const useEventHandlers = (
     }
   };
 
-  // --- handleBlockCut (Unchanged but uses new copy) ---
   const handleBlockCut = async (resourceId: string, date: string) => {
     handleBlockCopy(resourceId, date);
     await handleBlockDelete(resourceId, date, false);
   };
 
-  // --- handleBlockDelete (Unchanged) ---
   const handleBlockDelete = async (resourceId: string, date: string, showSuccessNotification = true) => {
     const originalEvents = [...events];
     const eventsToDelete = originalEvents.filter((e: CalendarEvent) => e.resourceId === resourceId && e.start === date);
@@ -524,7 +526,6 @@ export const useEventHandlers = (
     }
   };
 
-  // --- MODIFIED handlePaste ---
   const handlePaste = async (targetResourceId: string, targetDate: string) => {
     if (!clipboard) {
       showNotification('クリップボードにデータがありません。', 'warning');
@@ -532,46 +533,77 @@ export const useEventHandlers = (
     }
 
     const originalEvents = [...events];
-    const targetWorkerId = Number(targetResourceId.replace(RESOURCE_PREFIX.WORKER, ''));
     const pasteBaseDate = new Date(targetDate);
+    const workerResources = resources.filter(r => r.id.startsWith(RESOURCE_PREFIX.WORKER));
+    const targetResourceIndex = workerResources.findIndex(r => r.id === targetResourceId);
 
-    const assignmentsByDate = new Map<string, { projectId: number | null; workerId: number; date: string; title?: string }[]>();
+    if (targetResourceIndex === -1) {
+        showNotification('貼り付け先の作業員が見つかりません。', 'error');
+        return;
+    }
+
+    const assignmentsByTarget = new Map<string, any[]>();
 
     clipboard.data.forEach((clipboardItem: ClipboardEventData) => {
       const newDate = new Date(pasteBaseDate.getTime());
-      newDate.setDate(newDate.getDate() + clipboardItem.offsetDays);
+      newDate.setDate(newDate.getDate() + (clipboardItem.offsetDays || 0));
       const newDateStr = formatDate(newDate.toISOString());
 
-      if (!assignmentsByDate.has(newDateStr)) {
-        assignmentsByDate.set(newDateStr, []);
+      const newResourceIndex = targetResourceIndex + (clipboardItem.offsetResourceIndex || 0);
+      if (newResourceIndex < 0 || newResourceIndex >= workerResources.length) {
+          return; 
       }
-      assignmentsByDate.get(newDateStr)!.push({
+      const newResource = workerResources[newResourceIndex];
+      const newWorkerId = Number(newResource.id.replace(RESOURCE_PREFIX.WORKER, ''));
+
+      const targetKey = `${newResource.id}-${newDateStr}`;
+      if (!assignmentsByTarget.has(targetKey)) {
+        assignmentsByTarget.set(targetKey, []);
+      }
+      assignmentsByTarget.get(targetKey)!.push({
         projectId: clipboardItem.projectId,
-        workerId: targetWorkerId,
+        workerId: newWorkerId,
         date: newDateStr,
         title: clipboardItem.projectId ? undefined : clipboardItem.event.title,
+        resourceId: newResource.id,
+        backgroundColor: clipboardItem.event.backgroundColor,
+        borderColor: clipboardItem.event.borderColor,
+        originalTitle: clipboardItem.event.title,
       });
     });
 
-    for (const [date, assignmentsToPaste] of assignmentsByDate.entries()) {
-      const { count: existingCount, error: countError } = await supabase
-        .from('Assignments')
-        .select('*', { count: 'exact', head: true })
-        .eq('workerId', targetWorkerId)
-        .eq('date', date);
+    for (const [key, assignmentsToPaste] of assignmentsByTarget.entries()) {
+        const firstHyphenIndex = key.indexOf('-');
+        const resourceId = key.substring(0, firstHyphenIndex);
+        const date = key.substring(firstHyphenIndex + 1);
+        const workerId = Number(resourceId.replace(RESOURCE_PREFIX.WORKER, ''));
 
-      if (countError || existingCount === null) {
-        showNotification(`貼り付け先の情報(${date})を確認できませんでした。`, 'error');
-        return;
-      }
+        const { count: existingCount, error: countError } = await supabase
+            .from('Assignments')
+            .select('*', { count: 'exact', head: true })
+            .eq('workerId', workerId)
+            .eq('date', date);
 
-      if (existingCount + assignmentsToPaste.length > 3) {
-        showNotification(`貼り付け先(${date})の1日の登録上限(3件)を超えてしまいます。`, 'error');
-        return;
-      }
+        if (countError || existingCount === null) {
+            showNotification(`貼り付け先の情報(${date})を確認できませんでした。`, 'error');
+            return;
+        }
+
+        if (existingCount + assignmentsToPaste.length > 3) {
+            const resourceName = resources.find(r=>r.id===resourceId)?.title || '';
+            showNotification(`貼り付け先(${new Date(date).toLocaleDateString()}の${resourceName})の登録上限(3件)を超えてしまいます。`, 'error');
+            return;
+        }
     }
 
-    const allAssignmentsToInsert = Array.from(assignmentsByDate.values()).flat();
+    const allAssignmentsToInsert = Array.from(assignmentsByTarget.values()).flat().map(a => ({
+        projectId: a.projectId,
+        workerId: a.workerId,
+        date: a.date,
+        title: a.title,
+    }));
+
+    if (allAssignmentsToInsert.length === 0) return;
 
     try {
       const { data: insertedData, error: insertError } = await supabase
@@ -581,27 +613,21 @@ export const useEventHandlers = (
 
       if (insertError) throw insertError;
 
+      const allPastedAssignments = Array.from(assignmentsByTarget.values()).flat();
       const newEvents: CalendarEvent[] = insertedData.map((a: any) => {
-        const originalClipboardItem = clipboard.data.find(item => {
-            const newPastedDate = new Date(pasteBaseDate.getTime());
-            newPastedDate.setDate(newPastedDate.getDate() + item.offsetDays);
-            const newDateStr = formatDate(newPastedDate.toISOString());
-            
-            if (newDateStr !== a.date) return false;
-            if (a.projectId) return item.projectId === a.projectId;
-            return item.event.title === a.title;
-        });
-
-        return {
+          const originalPastedItem = allPastedAssignments.find(p => 
+              p.date === a.date && p.workerId === a.workerId && (p.projectId ? p.projectId === a.projectId : p.title === a.title)
+          );
+          return {
             id: `assign_${a.id}`,
             resourceId: `work_${a.workerId}`,
-            title: a.title || originalClipboardItem?.event.title || '',
+            title: a.title || originalPastedItem?.originalTitle || '',
             start: a.date,
             className: EVENT_CLASS_NAME.ASSIGNMENT,
-            backgroundColor: originalClipboardItem?.event.backgroundColor,
-            borderColor: originalClipboardItem?.event.borderColor,
+            backgroundColor: originalPastedItem?.backgroundColor,
+            borderColor: originalPastedItem?.borderColor,
             editable: true,
-        };
+          };
       });
 
       setEvents(prev => [...prev, ...newEvents]);
@@ -613,7 +639,6 @@ export const useEventHandlers = (
     }
   };
 
-  // --- handleAddOtherAssignment (Unchanged) ---
   const handleAddOtherAssignment = async (title: string, date: string, resourceId: string): Promise<boolean> => {
     if (!resourceId.startsWith(RESOURCE_PREFIX.WORKER)) {
         showNotification('「その他予定の追加」は作業員の行でのみ可能です。', 'warning');
@@ -646,7 +671,6 @@ export const useEventHandlers = (
     }
   };
 
-  // --- handleReorderAssignments (Unchanged) ---
   const handleReorderAssignments = async (reorderedAssignments: CalendarEvent[]) => {
       try {
           const updates = reorderedAssignments.map((event: CalendarEvent, index: number) => {
@@ -670,7 +694,6 @@ export const useEventHandlers = (
       }
   };
 
-  // --- handleReorderResources (Unchanged) ---
   const handleReorderResources = async (reorderedResources: Resource[]) => {
     try {
       const updates = reorderedResources.map((resource: Resource, index: number) => {
