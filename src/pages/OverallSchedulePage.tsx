@@ -1,19 +1,9 @@
 // src/pages/OverallSchedulePage.tsx
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
-import { Paper, CircularProgress, Alert, Typography, Box, Button, Snackbar, IconButton, Dialog, DialogActions, DialogContent, DialogTitle, TextField } from '@mui/material';
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
-import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-
+import { Paper, CircularProgress, Alert, Typography, Box, Button, Snackbar, IconButton } from '@mui/material';
 import FullCalendar from '@fullcalendar/react';
-import resourceTimelinePlugin from '@fullcalendar/resource-timeline';
-import interactionPlugin from '@fullcalendar/interaction';
-
-import type { EventContentArg, EventMountArg } from '@fullcalendar/core';
-import jaLocale from '@fullcalendar/core/locales/ja';
 import ReplayIcon from '@mui/icons-material/Replay';
-
-import { Menu, Item, useContextMenu } from 'react-contexify';
+import { useContextMenu } from 'react-contexify';
 import 'react-contexify/dist/ReactContexify.css';
 
 import { useScheduleData } from '@/hooks/useScheduleData';
@@ -21,32 +11,17 @@ import { useEventHandlers, type ClipboardData } from '@/hooks/useEventHandlers';
 import { EVENT_CLASS_NAME, RESOURCE_PREFIX } from '@/constants/scheduleConstants';
 import type { CalendarEvent, Resource } from '@/types/schedule';
 import { formatDate } from '@/utils/dateUtils';
-import { getDayClasses } from '@/utils/uiUtils';
 import { supabase } from '@/supabaseClient';
-import { SketchPicker, type ColorResult } from 'react-color';
+import type { ColorResult } from 'react-color';
 
-const CONTEXT_MENU_ID = 'context-menu';
-
-const SortableItem = ({ id, title }: { id: string, title: string }) => {
-    const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
-    const style = {
-        transform: CSS.Transform.toString(transform),
-        transition,
-        padding: '8px 16px',
-        border: '1px solid #ddd',
-        marginBottom: '4px',
-        backgroundColor: 'white',
-        cursor: 'grab',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    };
-    return (
-        <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-            <span>{title}</span>
-        </div>
-    );
-};
+// Import new components
+import { ScheduleCalendar } from '../components/schedule/ScheduleCalendar';
+import { ScheduleContextMenu, CONTEXT_MENU_ID } from '../components/schedule/ScheduleContextMenu';
+import { ReorderAssignmentsDialog } from '../components/schedule/dialogs/ReorderAssignmentsDialog';
+import { ReorderResourcesDialog } from '../components/schedule/dialogs/ReorderResourcesDialog';
+import { EditAssignmentDialog } from '../components/schedule/dialogs/EditAssignmentDialog';
+import { EditProjectDialog } from '../components/schedule/dialogs/EditProjectDialog';
+import { AddOtherAssignmentDialog } from '../components/schedule/dialogs/AddOtherAssignmentDialog';
 
 interface CompanyHoliday {
   id: number;
@@ -55,56 +30,44 @@ interface CompanyHoliday {
 }
 
 export default function OverallSchedulePage() {
+  // --- DATA & STATE ---
   const { resources, events, setEvents, loading, error: dataError, fetchData } = useScheduleData();
   const [calendarTitle, setCalendarTitle] = useState('');
   const [companyHolidays, setCompanyHolidays] = useState<CompanyHoliday[]>([]);
   const [isCopyMode, setIsCopyMode] = useState(false);
   const [draggedBlock, setDraggedBlock] = useState<CalendarEvent[]>([]);
   const [selectedEventIds, setSelectedEventIds] = useState<string[]>([]);
+  const [notification, setNotification] = useState<{ open: boolean; message: string; severity: 'success' | 'error' | 'info' | 'warning'; }>({ open: false, message: '', severity: 'info' });
+  const [clipboard, setClipboard] = useState<ClipboardData | null>(null);
 
+  // --- REFS ---
   const calendarRef = useRef<FullCalendar | null>(null);
   const lastHoveredCellRef = useRef<HTMLElement | null>(null);
 
-  const [notification, setNotification] = useState<{ open: boolean; message: string; severity: 'success' | 'error' | 'info' | 'warning'; }>({ open: false, message: '', severity: 'info' });
-  const [clipboard, setClipboard] = useState<ClipboardData | null>(null);
+  // --- DIALOG STATE ---
+  const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
+  const [editFormData, setEditFormData] = useState<{ title: string; start: string; }>({ title: '', start: '' });
+  const [editingProject, setEditingProject] = useState<any | null>(null);
+  const [projectEditDialogOpen, setProjectEditDialogOpen] = useState(false);
+  const [projectEditFormData, setProjectEditFormData] = useState<{ name: string; bar_color: string; }>({ name: '', bar_color: '' });
+  const [reorderDialogOpen, setReorderDialogOpen] = useState(false);
+  const [reorderableAssignments, setReorderableAssignments] = useState<CalendarEvent[]>([]);
+  const [reorderResourceDialogOpen, setReorderResourceDialogOpen] = useState(false);
+  const [reorderableResources, setReorderableResources] = useState<Resource[]>([]);
+  const [otherAssignmentDialogOpen, setOtherAssignmentDialogOpen] = useState(false);
+  const [otherAssignmentTitle, setOtherAssignmentTitle] = useState('');
+  const [otherAssignmentDate, setOtherAssignmentDate] = useState('');
+  const [otherAssignmentResourceId, setOtherAssignmentResourceId] = useState('');
+  const [dummyEvents, setDummyEvents] = useState<CalendarEvent[]>([]);
+
+  // --- HOOKS ---
+  const { show } = useContextMenu({ id: CONTEXT_MENU_ID });
   const showNotification = useCallback((message: string, severity: 'success' | 'error' | 'info' | 'warning' = 'info') => {
     setNotification({ open: true, message, severity });
   }, []);
-
   const { handleEventDrop, handleEventResize, handleEventUpdate, handleAssignmentCopy, handleAssignmentCut, handleAssignmentDelete, handleBlockCopy, handleBlockCut, handleBlockDelete, handlePaste, handleAddOtherAssignment, handleReorderAssignments } = useEventHandlers(events, setEvents, resources, showNotification, clipboard, setClipboard, fetchData);
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Alt' && !isCopyMode) {
-        setIsCopyMode(true);
-      }
-
-      if (selectedEventIds.length > 0) {
-        const selectedEvents = events.filter(event => selectedEventIds.includes(event.id));
-        if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
-          handleAssignmentCopy(selectedEvents);
-        }
-        if ((e.ctrlKey || e.metaKey) && e.key === 'x') {
-          handleAssignmentCut(selectedEvents);
-        }
-        if (e.key === 'Delete' || e.key === 'Backspace') {
-          handleAssignmentDelete(selectedEvents);
-        }
-      }
-    };
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === 'Alt' && isCopyMode) {
-        setIsCopyMode(false);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-    };
-  }, [isCopyMode, selectedEventIds, events, handleAssignmentCopy, handleAssignmentCut, handleAssignmentDelete]);
-
+  // --- COMPUTED VALUES ---
   const assignmentCounts = useMemo(() => {
     const counts = new Map<string, number>();
     events
@@ -118,18 +81,32 @@ export default function OverallSchedulePage() {
     return counts;
   }, [events]);
 
-  useEffect(() => {
-    const fetchCompanyHolidays = async () => {
-      const { data, error } = await supabase.from('CompanyHolidays').select('*');
-      if (error) {
-        console.error('Error fetching company holidays:', error);
-      } else {
-        setCompanyHolidays(data as CompanyHoliday[]);
+  const displayEvents = useMemo(() => {
+    const realEvents = events.filter(e => !e.extendedProps?.isDummy);
+    const assignmentsMap = new Map<string, CalendarEvent[]>();
+    realEvents.filter(e => e.className === EVENT_CLASS_NAME.ASSIGNMENT).forEach(e => {
+      const key = `${e.resourceId}_${e.start}`;
+      if (!assignmentsMap.has(key)) {
+        assignmentsMap.set(key, []);
       }
-    };
-    fetchCompanyHolidays();
-  }, []);
+      assignmentsMap.get(key)!.push(e);
+    });
 
+    const nonAssignmentEvents = realEvents.filter(e => e.className !== EVENT_CLASS_NAME.ASSIGNMENT);
+    const limitedAssignments: CalendarEvent[] = [];
+    assignmentsMap.forEach((eventList) => {
+      const sortedList = [...eventList].sort((a, b) => (a.extendedProps?.assignment_order ?? 0) - (b.extendedProps?.assignment_order ?? 0));
+      const listToProcess = sortedList.length > 3 ? sortedList.slice(0, 3) : sortedList;
+      const count = listToProcess.length;
+      const heightClass = `assignment-count-${count}`;
+      const styledList = listToProcess.map(e => ({ ...e, className: `${e.className || ''} ${heightClass}`.trim() }));
+      limitedAssignments.push(...styledList);
+    });
+
+    return [...nonAssignmentEvents, ...limitedAssignments, ...dummyEvents];
+  }, [events, dummyEvents]);
+
+  // --- CALLBACKS & HANDLERS ---
   const handleCloseDialog = useCallback(() => {
     setEditingEvent(null);
     setOtherAssignmentDialogOpen(false);
@@ -139,34 +116,11 @@ export default function OverallSchedulePage() {
     setEditingProject(null);
   }, []);
 
-  const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
-  const [editFormData, setEditFormData] = useState<{ title: string; start: string; }>({ title: '', start: '' });
-
-  const [editingProject, setEditingProject] = useState<any | null>(null);
-  const [projectEditDialogOpen, setProjectEditDialogOpen] = useState(false);
-  const [projectEditFormData, setProjectEditFormData] = useState<{ name: string; bar_color: string; }>({ name: '', bar_color: '' });
-
-  const [reorderDialogOpen, setReorderDialogOpen] = useState(false);
-  const [reorderableAssignments, setReorderableAssignments] = useState<CalendarEvent[]>([]);
-
-  const [reorderResourceDialogOpen, setReorderResourceDialogOpen] = useState(false);
-  const [reorderableResources, setReorderableResources] = useState<Resource[]>([]);
-
-  const [otherAssignmentDialogOpen, setOtherAssignmentDialogOpen] = useState(false);
-  const [otherAssignmentTitle, setOtherAssignmentTitle] = useState('');
-  const [otherAssignmentDate, setOtherAssignmentDate] = useState('');
-  const [otherAssignmentResourceId, setOtherAssignmentResourceId] = useState('');
-
-  const [dummyEvents, setDummyEvents] = useState<CalendarEvent[]>([]);
-
-  const { show } = useContextMenu({ id: CONTEXT_MENU_ID });
-
   const handleEventClick = (clickInfo: any) => {
     const { event, jsEvent } = clickInfo;
     const eventId = event.id as string;
 
-    // Deselect all if clicking on the calendar background
-    if (!event.id) { 
+    if (!event.id) {
         setSelectedEventIds([]);
         return;
     }
@@ -182,7 +136,7 @@ export default function OverallSchedulePage() {
       } else {
         console.error('Resource not found for event:', event);
       }
-      return; // Skip selection logic for main project events
+      return;
     }
 
     const isMultiSelect = jsEvent.ctrlKey || jsEvent.metaKey;
@@ -229,7 +183,7 @@ export default function OverallSchedulePage() {
     setNotification((prev) => ({ ...prev, open: false }));
   }, []);
 
-  const handleSave = useCallback(async () => {
+  const handleSaveAssignment = useCallback(async () => {
     if (!editingEvent) return;
     const updatedEvent: CalendarEvent = { ...editingEvent, start: editFormData.start };
     const success = await handleEventUpdate(updatedEvent);
@@ -284,30 +238,6 @@ export default function OverallSchedulePage() {
       await fetchData();
     }
   };
-
-  const sensors = useSensors(useSensor(PointerSensor), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
-
-  function handleDragEnd(event: DragEndEvent) {
-    const {active, over} = event;
-    if (over && active.id !== over.id) {
-      setReorderableAssignments((items) => {
-        const oldIndex = items.findIndex(item => item.id === active.id);
-        const newIndex = items.findIndex(item => item.id === over.id);
-        return arrayMove(items, oldIndex, newIndex);
-      });
-    }
-  }
-
-  function handleResourceDragEnd(event: DragEndEvent) {
-    const {active, over} = event;
-    if (over && active.id !== over.id) {
-      setReorderableResources((items) => {
-        const oldIndex = items.findIndex(item => item.id === active.id);
-        const newIndex = items.findIndex(item => item.id === over.id);
-        return arrayMove(items, oldIndex, newIndex);
-      });
-    }
-  }
 
   const handleEventDragStart = useCallback((dragInfo: any) => {
     const { event } = dragInfo;
@@ -364,6 +294,73 @@ export default function OverallSchedulePage() {
     setDraggedBlock([]);
   }, []);
 
+  const handleEventMount = (mountInfo: any) => {
+    const { event, el } = mountInfo;
+    const isDummy = event.extendedProps.isDummy;
+    const isAssignment = event.classNames.includes(EVENT_CLASS_NAME.ASSIGNMENT);
+
+    if (isDummy) {
+        el.style.backgroundColor = 'rgba(0,0,0,0.0)'; 
+    }
+
+    if (isDummy || isAssignment) {
+        el.oncontextmenu = (e: MouseEvent) => {
+            e.preventDefault();
+            const props = {
+                event: event,
+                resource: isDummy ? event.extendedProps.resource : resources.find(r => r.id === event.resourceId),
+                date: isDummy ? event.extendedProps.date : event.start
+            };
+            show({ event: e, props });
+        };
+    }
+  };
+
+  // --- EFFECTS ---
+  useEffect(() => {
+    const fetchCompanyHolidays = async () => {
+      const { data, error } = await supabase.from('CompanyHolidays').select('*');
+      if (error) {
+        console.error('Error fetching company holidays:', error);
+      } else {
+        setCompanyHolidays(data as CompanyHoliday[]);
+      }
+    };
+    fetchCompanyHolidays();
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Alt' && !isCopyMode) {
+        setIsCopyMode(true);
+      }
+
+      if (selectedEventIds.length > 0) {
+        const selectedEvents = events.filter(event => selectedEventIds.includes(event.id));
+        if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+          handleAssignmentCopy(selectedEvents);
+        }
+        if ((e.ctrlKey || e.metaKey) && e.key === 'x') {
+          handleAssignmentCut(selectedEvents);
+        }
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+          handleAssignmentDelete(selectedEvents);
+        }
+      }
+    };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Alt' && isCopyMode) {
+        setIsCopyMode(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [isCopyMode, selectedEventIds, events, handleAssignmentCopy, handleAssignmentCut, handleAssignmentDelete]);
+
   useEffect(() => {
     if (!loading && calendarRef.current) {
       const calendarApi = calendarRef.current.getApi();
@@ -392,98 +389,19 @@ export default function OverallSchedulePage() {
     }
   }, [events, resources, loading]);
 
-  const displayEvents = useMemo(() => {
-    const realEvents = events.filter(e => !e.extendedProps?.isDummy);
-    const assignmentsMap = new Map<string, CalendarEvent[]>();
-    realEvents.filter(e => e.className === EVENT_CLASS_NAME.ASSIGNMENT).forEach(e => {
-      const key = `${e.resourceId}_${e.start}`;
-      if (!assignmentsMap.has(key)) {
-        assignmentsMap.set(key, []);
-      }
-      assignmentsMap.get(key)!.push(e);
-    });
-
-    const nonAssignmentEvents = realEvents.filter(e => e.className !== EVENT_CLASS_NAME.ASSIGNMENT);
-    const limitedAssignments: CalendarEvent[] = [];
-    assignmentsMap.forEach((eventList) => {
-      const sortedList = [...eventList].sort((a, b) => (a.extendedProps?.assignment_order ?? 0) - (b.extendedProps?.assignment_order ?? 0));
-      const listToProcess = sortedList.length > 3 ? sortedList.slice(0, 3) : sortedList;
-      const count = listToProcess.length;
-      const heightClass = `assignment-count-${count}`;
-      const styledList = listToProcess.map(e => ({ ...e, className: `${e.className || ''} ${heightClass}`.trim() }));
-      limitedAssignments.push(...styledList);
-    });
-
-    return [...nonAssignmentEvents, ...limitedAssignments, ...dummyEvents];
-  }, [events, dummyEvents]);
-
-  const renderEventContent = (eventInfo: EventContentArg) => {
-    if (eventInfo.event.extendedProps.isDummy) return true;
-    const { event } = eventInfo;
-    const title = event.title;
-    const isAssignment = event.classNames.includes(EVENT_CLASS_NAME.ASSIGNMENT);
-    
-    const classNames = [
-      isAssignment ? "assignment-event-title" : "event-title"
-    ].filter(Boolean).join(" ");
-
-    const style = { color: event.textColor };
-    return <div className={classNames} style={style}>{title}</div>;
-  };
-
-  const handleEventMount = (mountInfo: EventMountArg) => {
-    const { event, el } = mountInfo;
-
-    const isDummy = mountInfo.event.extendedProps.isDummy;
-    const isAssignment = mountInfo.event.classNames.includes(EVENT_CLASS_NAME.ASSIGNMENT);
-
-    if (isDummy) {
-        mountInfo.el.style.backgroundColor = 'rgba(0,0,0,0.0)'; 
-    }
-
-    if (isDummy || isAssignment) {
-        mountInfo.el.oncontextmenu = (e) => {
-            e.preventDefault();
-            const props = {
-                event: mountInfo.event,
-                resource: isDummy ? mountInfo.event.extendedProps.resource : resources.find(r => r.id === (mountInfo.event as any).resourceId),
-                date: isDummy ? mountInfo.event.extendedProps.date : mountInfo.event.start
-            };
-            show({ event: e, props });
-        };
-    }
-  };
-
   useEffect(() => {
     if (!loading && calendarRef.current) {
       calendarRef.current.getApi().gotoDate(new Date());
     }
   }, [loading]);
 
-    useEffect(() => {
-    // Cell styling is handled in App.css
-  });
-
   useEffect(() => {
     if (dataError) {
       showNotification(`データの読み込みに失敗しました: ${dataError}`, 'error');
     }
-  }, [dataError]);
+  }, [dataError, showNotification]);
 
-  const isAssignment = (props: any) => props?.event?.classNames.includes(EVENT_CLASS_NAME.ASSIGNMENT);
-  const isDummy = (props: any) => !!props?.event?.extendedProps.isDummy;
-  const isWorker = (props: any) => {
-    const resource = props?.resource || props?.event?.getResources()[0];
-    return resource?.group === 'workers';
-  };
-  const getAssignmentsOnDay = (props: any) => {
-      if (!props) return [];
-      const date = props.date ? formatDate(new Date(props.date).toISOString()) : props.event?.startStr;
-      const resourceId = props.resource?.id || props.event?.getResources()[0]?.id;
-      if (!date || !resourceId) return [];
-      return events.filter(e => e.start === date && e.resourceId === resourceId && e.className === EVENT_CLASS_NAME.ASSIGNMENT);
-  };
-
+  // --- RENDER ---
   return (
     <div className={isCopyMode ? 'copy-mode' : ''}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -497,221 +415,82 @@ export default function OverallSchedulePage() {
         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}><CircularProgress /></Box>
       ) : (
         <Paper sx={{ marginTop: 2, overflowX: 'auto' }}>
-          <FullCalendar
-            ref={calendarRef}
-            key={resources.map(r => r.id).join('-')}
-            plugins={[resourceTimelinePlugin, interactionPlugin]}
-            schedulerLicenseKey="GPL-My-Project-Is-Open-Source"
-            locale={jaLocale}
-            initialView='resourceTimelineWeekRange'
-            visibleRange={(() => {
-              const today = new Date();
-              const dayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-              const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Calculate days to subtract to get to Monday
-              const mondayOfCurrentWeek = new Date(today.setDate(today.getDate() - diff));
-              const sixMonthsLater = new Date(mondayOfCurrentWeek);
-              sixMonthsLater.setMonth(sixMonthsLater.getMonth() + 6);
-              return {
-                start: mondayOfCurrentWeek.toISOString().split('T')[0],
-                end: sixMonthsLater.toISOString().split('T')[0]
-              };
-            })()}
-            headerToolbar={{ left: '', center: '', right: '' }}
-            datesSet={(arg) => {
-              setCalendarTitle(arg.view.title);
-            }}
-            views={{
-              resourceTimelineWeekRange: {
-                type: 'resourceTimeline',
-                buttonText: '6ヶ月'
-              },
-              /*resourceTimelineSixMonths: {
-                type: 'resourceTimeline',
-                duration: { months: 6 },
-                buttonText: '6ヶ月'
-              }*/
-            }}
-            editable={true}
+          <ScheduleCalendar
+            calendarRef={calendarRef}
             resources={resources}
-            resourceGroupField="group"
-            resourceOrder="group,order"
             events={displayEvents}
-            eventOrder="extendedProps.assignment_order"
-            eventResizableFromStart={true}
-            eventDrop={handleEventDrop}
-            eventResize={handleEventResize}
-            eventContent={renderEventContent}
-            eventDidMount={handleEventMount}
-            eventClassNames={arg => {
-              if (selectedEventIds.includes(arg.event.id)) {
-                return ['selected-event'];
-              }
-              return [];
-            }}
-            eventClick={handleEventClick}
-            eventDragStart={handleEventDragStart}
-            eventDragStop={handleEventDragStop}
-            eventAllow={handleEventAllow}
-            resourceAreaColumns={[
-              {
-                headerContent: 'リソース名',
-                cellContent: (arg) => {
-                  const { resource } = arg;
-                  if (resource._resource.extendedProps && resource._resource.extendedProps.group === 'workers') {
-                    const { birthDate, age } = resource._resource.extendedProps;
-                    const birthDateStr = birthDate ? new Date(birthDate).toLocaleDateString('ja-JP') : '';
-                    const ageStr = age !== undefined ? `(${age}歳)` : '';
-                    return (
-                      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', p: '4px', height: '100%', justifyContent: 'center' }}>
-                        <Typography variant="body2">{resource.title}</Typography>
-                        <Typography variant="caption" color="textSecondary">
-                          {birthDateStr} {ageStr}
-                        </Typography>
-                      </Box>
-                    );
-                  }
-                  return <Box sx={{ p: '4px', display: 'flex', alignItems: 'center', height: '100%', justifyContent: 'flex-start' }}><Typography variant="body2">{resource.title}</Typography></Box>;
-                }
-              }
-            ]}
-            resourceGroupLabelContent={(groupInfo) => (
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', flexGrow: 1, pl: 1 }}>
-                <Typography variant="subtitle2">{groupInfo.groupValue === 'projects' ? '案件名' : '作業員名'}</Typography>
-                <Button size="small" variant="outlined" sx={{ fontSize: '0.75rem', minWidth: 0, p: '2px 6px', ml: '2em' }} onClick={() => {
-                  const filtered = resources.filter(r => r.group === groupInfo.groupValue);
-                  setReorderableResources(filtered);
-                  setReorderResourceDialogOpen(true);
-                }}>並び替え</Button>
-              </Box>
-            )}
-            slotLaneDidMount={(info) => getDayClasses({ date: info.date } as any, companyHolidays).forEach(cls => info.el.classList.add(cls))}
-            slotLabelDidMount={(info) => getDayClasses({ date: info.date } as any, companyHolidays).forEach(cls => info.el.classList.add(cls))}
-            slotMinWidth={60}
-            resourceAreaWidth="250px"
-            dragScroll={true}
+            companyHolidays={companyHolidays}
+            selectedEventIds={selectedEventIds}
+            onDatesSet={(arg) => setCalendarTitle(arg.view.title)}
+            onEventDrop={handleEventDrop}
+            onEventResize={handleEventResize}
+            onEventClick={handleEventClick}
+            onEventDragStart={handleEventDragStart}
+            onEventDragStop={handleEventDragStop}
+            onEventAllow={handleEventAllow}
+            onEventMount={handleEventMount}
+            setReorderableResources={setReorderableResources}
+            setReorderResourceDialogOpen={setReorderResourceDialogOpen}
           />
         </Paper>
       )}
-      <Menu id={CONTEXT_MENU_ID}>
-        <Item hidden={({props}) => isDummy(props) || !isAssignment(props)} onClick={({props}) => {
-          const clickedEvent = (props as any).event;
-          const isSelected = selectedEventIds.includes(clickedEvent.id);
-          if (isSelected && selectedEventIds.length > 0) {
-            const selectedEvents = events.filter(e => selectedEventIds.includes(e.id));
-            handleAssignmentCopy(selectedEvents);
-          } else {
-            handleAssignmentCopy([clickedEvent]);
-          }
-        }}>工事名コピー</Item>
-        <Item hidden={({props}) => isDummy(props) || !isAssignment(props)} onClick={({props}) => {
-          const clickedEvent = (props as any).event;
-          const isSelected = selectedEventIds.includes(clickedEvent.id);
-          if (isSelected && selectedEventIds.length > 0) {
-            const selectedEvents = events.filter(e => selectedEventIds.includes(e.id));
-            handleAssignmentCut(selectedEvents);
-          } else {
-            handleAssignmentCut([clickedEvent]);
-          }
-        }}>工事名切り取り</Item>
-        <Item hidden={({props}) => isDummy(props) || !isAssignment(props)} onClick={({props}) => {
-          const clickedEvent = (props as any).event;
-          const isSelected = selectedEventIds.includes(clickedEvent.id);
-          if (isSelected && selectedEventIds.length > 0) {
-            const selectedEvents = events.filter(e => selectedEventIds.includes(e.id));
-            handleAssignmentDelete(selectedEvents);
-          } else {
-            handleAssignmentDelete([clickedEvent]);
-          }
-        }}>工事名削除</Item>
-        <Item hidden={({props}) => isDummy(props) || getAssignmentsOnDay(props).length <= 1} onClick={({props}) => {
-            const assignments = getAssignmentsOnDay(props);
-            const sorted = [...assignments].sort((a, b) => (a.extendedProps?.assignment_order ?? 0) - (b.extendedProps?.assignment_order ?? 0));
-            setReorderableAssignments(sorted);
-            setReorderDialogOpen(true);
-        }}>この日の作業順を並び替え</Item>
-        <Item onClick={({props}) => {
-            const date = (props as any).date ? formatDate(new Date((props as any).date).toISOString()) : (props as any).event.startStr;
-            const resourceId = (props as any).resource?.id || (props as any).event.getResources()[0]?.id;
-            setOtherAssignmentDate(date);
-            setOtherAssignmentResourceId(resourceId);
-            setOtherAssignmentDialogOpen(true);
-        }}>その他予定を追加</Item>
-        <Item disabled={!clipboard} onClick={({props}) => {
-            const date = (props as any).date ? formatDate(new Date((props as any).date).toISOString()) : (props as any).event.startStr;
-            const resourceId = (props as any).resource?.id || (props as any).event.getResources()[0]?.id;
-            handlePaste(resourceId, date);
-        }}>工事名の貼付け</Item>
-        <Item hidden={({props}) => !isDummy(props) || isWorker(props)} onClick={({props}) => handleBlockCopy((props as any).resource?.id, formatDate((props as any).date.toISOString()))}>ブロックコピー</Item>
-        <Item hidden={({props}) => !isDummy(props) || isWorker(props)} onClick={({props}) => handleBlockCut((props as any).resource?.id, formatDate((props as any).date.toISOString()))}>ブロック切り取り</Item>
-        <Item hidden={({props}) => !isDummy(props) || isWorker(props)} onClick={({props}) => handleBlockDelete((props as any).resource?.id, formatDate((props as any).date.toISOString()))}>ブロック削除</Item>
-      </Menu>
+      <ScheduleContextMenu
+        clipboard={clipboard}
+        events={events}
+        selectedEventIds={selectedEventIds}
+        handleAssignmentCopy={handleAssignmentCopy}
+        handleAssignmentCut={handleAssignmentCut}
+        handleAssignmentDelete={handleAssignmentDelete}
+        setReorderableAssignments={setReorderableAssignments}
+        setReorderDialogOpen={setReorderDialogOpen}
+        setOtherAssignmentDate={setOtherAssignmentDate}
+        setOtherAssignmentResourceId={setOtherAssignmentResourceId}
+        setOtherAssignmentDialogOpen={setOtherAssignmentDialogOpen}
+        handlePaste={handlePaste}
+        handleBlockCopy={handleBlockCopy}
+        handleBlockCut={handleBlockCut}
+        handleBlockDelete={handleBlockDelete}
+      />
       <Snackbar open={notification.open} autoHideDuration={6000} onClose={handleCloseNotification}>
         <Alert onClose={handleCloseNotification} severity={notification.severity} sx={{ width: '100%' }} variant="filled">{notification.message}</Alert>
       </Snackbar>
-      <Dialog open={reorderDialogOpen} onClose={handleCloseDialog}>
-        <DialogTitle>表示順の変更</DialogTitle>
-        <DialogContent>
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                <SortableContext items={reorderableAssignments.map(item => item.id)} strategy={verticalListSortingStrategy}>
-                    {reorderableAssignments.map(item => <SortableItem key={item.id} id={item.id} title={item.title} />)}
-                </SortableContext>
-            </DndContext>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDialog}>キャンセル</Button>
-          <Button onClick={handleSaveReorder}>保存</Button>
-        </DialogActions>
-      </Dialog>
-      <Dialog open={reorderResourceDialogOpen} onClose={handleCloseDialog}>
-        <DialogTitle>リソースの並び替え</DialogTitle>
-        <DialogContent>
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleResourceDragEnd}>
-            <SortableContext items={reorderableResources.map(item => item.id)} strategy={verticalListSortingStrategy}>
-              {reorderableResources.map(item => <SortableItem key={item.id} id={item.id} title={item.title} />)}
-            </SortableContext>
-          </DndContext>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDialog}>キャンセル</Button>
-          <Button onClick={handleSaveResourceReorder}>保存</Button>
-        </DialogActions>
-      </Dialog>
-      <Dialog open={!!editingEvent} onClose={handleCloseDialog}>
-        <DialogTitle>配置情報の編集</DialogTitle>
-        <DialogContent>
-          <TextField autoFocus margin="dense" id="title" name="name" label="案件名" type="text" fullWidth variant="standard" value={editFormData.title} disabled />
-          <TextField margin="dense" id="start" name="start" label="日付" type="date" fullWidth variant="standard" value={editFormData.start} onChange={handleDialogInputChange} InputLabelProps={{ shrink: true }} />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDialog}>キャンセル</Button>
-          <Button onClick={handleSave}>保存</Button>
-        </DialogActions>
-      </Dialog>
-      <Dialog open={projectEditDialogOpen} onClose={handleCloseDialog}>
-        <DialogTitle>プロジェクトの編集</DialogTitle>
-        <DialogContent>
-          <TextField autoFocus margin="dense" id="name" name="name" label="案件名" type="text" fullWidth variant="standard" value={projectEditFormData.name} onChange={handleProjectDialogInputChange} />
-          <Box sx={{ mt: 2 }}>
-            <Typography variant="body1">バーの色</Typography>
-            <SketchPicker color={projectEditFormData.bar_color} onChange={handleColorChange} />
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDialog}>キャンセル</Button>
-          <Button onClick={handleProjectUpdate}>保存</Button>
-        </DialogActions>
-      </Dialog>
-      <Dialog open={otherAssignmentDialogOpen} onClose={handleCloseDialog}>
-        <DialogTitle>その他予定の追加</DialogTitle>
-        <DialogContent>
-          <TextField autoFocus margin="dense" id="other-title" label="予定名" type="text" fullWidth variant="standard" value={otherAssignmentTitle} onChange={(e) => setOtherAssignmentTitle(e.target.value)} />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDialog}>キャンセル</Button>
-          <Button onClick={handleSaveOtherAssignment}>保存</Button>
-        </DialogActions>
-      </Dialog>
-
-      </div>
+      <ReorderAssignmentsDialog
+        open={reorderDialogOpen}
+        onClose={handleCloseDialog}
+        assignments={reorderableAssignments}
+        setAssignments={setReorderableAssignments}
+        onSave={handleSaveReorder}
+      />
+      <ReorderResourcesDialog
+        open={reorderResourceDialogOpen}
+        onClose={handleCloseDialog}
+        resources={reorderableResources}
+        setResources={setReorderableResources}
+        onSave={handleSaveResourceReorder}
+      />
+      <EditAssignmentDialog
+        open={!!editingEvent}
+        onClose={handleCloseDialog}
+        event={editingEvent}
+        formData={editFormData}
+        onFormChange={handleDialogInputChange}
+        onSave={handleSaveAssignment}
+      />
+      <EditProjectDialog
+        open={projectEditDialogOpen}
+        onClose={handleCloseDialog}
+        formData={projectEditFormData}
+        onFormChange={handleProjectDialogInputChange}
+        onColorChange={handleColorChange}
+        onSave={handleProjectUpdate}
+      />
+      <AddOtherAssignmentDialog
+        open={otherAssignmentDialogOpen}
+        onClose={handleCloseDialog}
+        title={otherAssignmentTitle}
+        onTitleChange={(e) => setOtherAssignmentTitle(e.target.value)}
+        onSave={handleSaveOtherAssignment}
+      />
+    </div>
   );
 }
