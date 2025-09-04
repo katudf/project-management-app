@@ -432,12 +432,27 @@ export const useEventHandlers = (
   const handleAssignmentCopy = (targetEvents: CalendarEvent[]) => {
     if (targetEvents.length === 0) return;
 
-    const allDates = targetEvents.map(e => new Date(e.start).getTime());
-    const baseDate = new Date(Math.min(...allDates));
-
     const workerResources = resources.filter(r => r.id.startsWith(RESOURCE_PREFIX.WORKER));
-    const baseEvent = targetEvents[0];
-    const baseResourceIndex = workerResources.findIndex(r => r.id === baseEvent.resourceId);
+
+    let baseEvent = targetEvents[0];
+    let baseDate = new Date(baseEvent.start);
+    let baseResourceIndex = workerResources.findIndex(r => r.id === baseEvent.resourceId);
+
+    for (const event of targetEvents) {
+        const eventDate = new Date(event.start);
+        const eventResourceIndex = workerResources.findIndex(r => r.id === event.resourceId);
+
+        if (eventDate < baseDate) {
+            baseDate = eventDate;
+            baseResourceIndex = eventResourceIndex;
+            baseEvent = event;
+        } else if (eventDate.getTime() === baseDate.getTime()) {
+            if (eventResourceIndex !== -1 && (baseResourceIndex === -1 || eventResourceIndex < baseResourceIndex)) {
+                baseResourceIndex = eventResourceIndex;
+                baseEvent = event;
+            }
+        }
+    }
 
     const clipboardBlockData: ClipboardEventData[] = targetEvents.map((event: CalendarEvent) => {
       const projectResource = resources.find((r: Resource) => r.title === event.title && r.group === 'projects');
@@ -532,7 +547,6 @@ export const useEventHandlers = (
       return;
     }
 
-    const originalEvents = [...events];
     const pasteBaseDate = new Date(targetDate);
     const workerResources = resources.filter(r => r.id.startsWith(RESOURCE_PREFIX.WORKER));
     const targetResourceIndex = workerResources.findIndex(r => r.id === targetResourceId);
@@ -542,7 +556,7 @@ export const useEventHandlers = (
         return;
     }
 
-    const assignmentsByTarget = new Map<string, any[]>();
+    const assignmentsForRpc = new Map<string, { worker_id: number; target_date: string; assignments_to_add: any[] }>();
 
     clipboard.data.forEach((clipboardItem: ClipboardEventData) => {
       const newDate = new Date(pasteBaseDate.getTime());
@@ -556,86 +570,46 @@ export const useEventHandlers = (
       const newResource = workerResources[newResourceIndex];
       const newWorkerId = Number(newResource.id.replace(RESOURCE_PREFIX.WORKER, ''));
 
-      const targetKey = `${newResource.id}-${newDateStr}`;
-      if (!assignmentsByTarget.has(targetKey)) {
-        assignmentsByTarget.set(targetKey, []);
+      const rpcTargetKey = `${newWorkerId}-${newDateStr}`;
+      if (!assignmentsForRpc.has(rpcTargetKey)) {
+        assignmentsForRpc.set(rpcTargetKey, {
+            worker_id: newWorkerId,
+            target_date: newDateStr,
+            assignments_to_add: [],
+        });
       }
-      assignmentsByTarget.get(targetKey)!.push({
-        projectId: clipboardItem.projectId,
-        workerId: newWorkerId,
-        date: newDateStr,
-        title: clipboardItem.projectId ? undefined : clipboardItem.event.title,
-        resourceId: newResource.id,
-        backgroundColor: clipboardItem.event.backgroundColor,
-        borderColor: clipboardItem.event.borderColor,
-        originalTitle: clipboardItem.event.title,
+      
+      assignmentsForRpc.get(rpcTargetKey)!.assignments_to_add.push({
+        project_id: clipboardItem.projectId,
+        title: clipboardItem.projectId ? null : clipboardItem.event.title,
+        assignment_order: clipboardItem.event.extendedProps?.assignment_order ?? 0
       });
     });
 
-    for (const [key, assignmentsToPaste] of assignmentsByTarget.entries()) {
-        const firstHyphenIndex = key.indexOf('-');
-        const resourceId = key.substring(0, firstHyphenIndex);
-        const date = key.substring(firstHyphenIndex + 1);
-        const workerId = Number(resourceId.replace(RESOURCE_PREFIX.WORKER, ''));
+    assignmentsForRpc.forEach(group => {
+        group.assignments_to_add.sort((a, b) => a.assignment_order - b.assignment_order);
+    });
 
-        const { count: existingCount, error: countError } = await supabase
-            .from('Assignments')
-            .select('*', { count: 'exact', head: true })
-            .eq('workerId', workerId)
-            .eq('date', date);
+    const pasteDataPayload = Array.from(assignmentsForRpc.values());
 
-        if (countError || existingCount === null) {
-            showNotification(`貼り付け先の情報(${date})を確認できませんでした。`, 'error');
-            return;
-        }
-
-        if (existingCount + assignmentsToPaste.length > 3) {
-            const resourceName = resources.find(r=>r.id===resourceId)?.title || '';
-            showNotification(`貼り付け先(${new Date(date).toLocaleDateString()}の${resourceName})の登録上限(3件)を超えてしまいます。`, 'error');
-            return;
-        }
+    if (pasteDataPayload.length === 0) {
+        return;
     }
 
-    const allAssignmentsToInsert = Array.from(assignmentsByTarget.values()).flat().map(a => ({
-        projectId: a.projectId,
-        workerId: a.workerId,
-        date: a.date,
-        title: a.title,
-    }));
-
-    if (allAssignmentsToInsert.length === 0) return;
-
     try {
-      const { data: insertedData, error: insertError } = await supabase
-        .from('Assignments')
-        .insert(allAssignmentsToInsert)
-        .select();
+        const { error } = await supabase.rpc('overwrite_paste', { paste_data: pasteDataPayload });
 
-      if (insertError) throw insertError;
+        if (error) {
+            throw error;
+        }
 
-      const allPastedAssignments = Array.from(assignmentsByTarget.values()).flat();
-      const newEvents: CalendarEvent[] = insertedData.map((a: any) => {
-          const originalPastedItem = allPastedAssignments.find(p => 
-              p.date === a.date && p.workerId === a.workerId && (p.projectId ? p.projectId === a.projectId : p.title === a.title)
-          );
-          return {
-            id: `assign_${a.id}`,
-            resourceId: `work_${a.workerId}`,
-            title: a.title || originalPastedItem?.originalTitle || '',
-            start: a.date,
-            className: EVENT_CLASS_NAME.ASSIGNMENT,
-            backgroundColor: originalPastedItem?.backgroundColor,
-            borderColor: originalPastedItem?.borderColor,
-            editable: true,
-          };
-      });
+        await fetchData();
+        showNotification('貼り付け（上書き）が完了しました。', 'success');
 
-      setEvents(prev => [...prev, ...newEvents]);
-      showNotification('貼り付けが完了しました。', 'success');
-
-    } catch (error) {
-      showNotification('貼り付けに失敗しました。', 'error');
-      setEvents(originalEvents);
+    } catch (error: any) {
+        console.error('Paste error:', error);
+        showNotification(`貼り付けに失敗しました: ${error.message}`, 'error');
+        await fetchData();
     }
   };
 
