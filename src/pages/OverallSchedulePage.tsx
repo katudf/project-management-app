@@ -60,14 +60,36 @@ export default function OverallSchedulePage() {
   const [companyHolidays, setCompanyHolidays] = useState<CompanyHoliday[]>([]);
   const [isCopyMode, setIsCopyMode] = useState(false);
   const [draggedBlock, setDraggedBlock] = useState<CalendarEvent[]>([]);
+  const [selectedEventIds, setSelectedEventIds] = useState<string[]>([]);
 
   const calendarRef = useRef<FullCalendar | null>(null);
   const lastHoveredCellRef = useRef<HTMLElement | null>(null);
+
+  const [notification, setNotification] = useState<{ open: boolean; message: string; severity: 'success' | 'error' | 'info' | 'warning'; }>({ open: false, message: '', severity: 'info' });
+  const [clipboard, setClipboard] = useState<ClipboardData | null>(null);
+  const showNotification = useCallback((message: string, severity: 'success' | 'error' | 'info' | 'warning' = 'info') => {
+    setNotification({ open: true, message, severity });
+  }, []);
+
+  const { handleEventDrop, handleEventResize, handleEventUpdate, handleAssignmentCopy, handleAssignmentCut, handleAssignmentDelete, handleBlockCopy, handleBlockCut, handleBlockDelete, handlePaste, handleAddOtherAssignment, handleReorderAssignments } = useEventHandlers(events, setEvents, resources, showNotification, clipboard, setClipboard, fetchData);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Alt' && !isCopyMode) {
         setIsCopyMode(true);
+      }
+
+      if (selectedEventIds.length > 0) {
+        const selectedEvents = events.filter(event => selectedEventIds.includes(event.id));
+        if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+          handleAssignmentCopy(selectedEvents);
+        }
+        if ((e.ctrlKey || e.metaKey) && e.key === 'x') {
+          handleAssignmentCut(selectedEvents);
+        }
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+          handleAssignmentDelete(selectedEvents);
+        }
       }
     };
     const handleKeyUp = (e: KeyboardEvent) => {
@@ -81,7 +103,7 @@ export default function OverallSchedulePage() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [isCopyMode]);
+  }, [isCopyMode, selectedEventIds, events, handleAssignmentCopy, handleAssignmentCut, handleAssignmentDelete]);
 
   const assignmentCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -107,13 +129,6 @@ export default function OverallSchedulePage() {
     };
     fetchCompanyHolidays();
   }, []);
-  const [notification, setNotification] = useState<{ open: boolean; message: string; severity: 'success' | 'error' | 'info' | 'warning'; }>({ open: false, message: '', severity: 'info' });
-  const [clipboard, setClipboard] = useState<ClipboardData | null>(null);
-  const showNotification = useCallback((message: string, severity: 'success' | 'error' | 'info' | 'warning' = 'info') => {
-    setNotification({ open: true, message, severity });
-  }, []);
-
-  const { handleEventDrop, handleEventResize, handleEventUpdate, handleAssignmentCopy, handleAssignmentCut, handleAssignmentDelete, handleBlockCopy, handleBlockCut, handleBlockDelete, handlePaste, handleAddOtherAssignment, handleReorderAssignments } = useEventHandlers(events, setEvents, resources, showNotification, clipboard, setClipboard, fetchData);
 
   const handleCloseDialog = useCallback(() => {
     setEditingEvent(null);
@@ -147,7 +162,15 @@ export default function OverallSchedulePage() {
   const { show } = useContextMenu({ id: CONTEXT_MENU_ID });
 
   const handleEventClick = (clickInfo: any) => {
-    const { event } = clickInfo;
+    const { event, jsEvent } = clickInfo;
+    const eventId = event.id as string;
+
+    // Deselect all if clicking on the calendar background
+    if (!event.id) { 
+        setSelectedEventIds([]);
+        return;
+    }
+
     if (event.classNames.includes(EVENT_CLASS_NAME.PROJECT_MAIN)) {
       const associatedResources = event.getResources();
       if (associatedResources.length > 0) {
@@ -159,6 +182,19 @@ export default function OverallSchedulePage() {
       } else {
         console.error('Resource not found for event:', event);
       }
+      return; // Skip selection logic for main project events
+    }
+
+    const isMultiSelect = jsEvent.ctrlKey || jsEvent.metaKey;
+
+    if (isMultiSelect) {
+      setSelectedEventIds(prevSelectedIds =>
+        prevSelectedIds.includes(eventId)
+          ? prevSelectedIds.filter(id => id !== eventId)
+          : [...prevSelectedIds, eventId]
+      );
+    } else {
+      setSelectedEventIds([eventId]);
     }
   };
 
@@ -386,12 +422,18 @@ export default function OverallSchedulePage() {
     const { event } = eventInfo;
     const title = event.title;
     const isAssignment = event.classNames.includes(EVENT_CLASS_NAME.ASSIGNMENT);
-    const className = isAssignment ? "assignment-event-title" : "event-title";
+    
+    const classNames = [
+      isAssignment ? "assignment-event-title" : "event-title"
+    ].filter(Boolean).join(" ");
+
     const style = { color: event.textColor };
-    return <div className={className} style={style}>{title}</div>;
+    return <div className={classNames} style={style}>{title}</div>;
   };
 
   const handleEventMount = (mountInfo: EventMountArg) => {
+    const { event, el } = mountInfo;
+
     const isDummy = mountInfo.event.extendedProps.isDummy;
     const isAssignment = mountInfo.event.classNames.includes(EVENT_CLASS_NAME.ASSIGNMENT);
 
@@ -500,6 +542,12 @@ export default function OverallSchedulePage() {
             eventResize={handleEventResize}
             eventContent={renderEventContent}
             eventDidMount={handleEventMount}
+            eventClassNames={arg => {
+              if (selectedEventIds.includes(arg.event.id)) {
+                return ['selected-event'];
+              }
+              return [];
+            }}
             eventClick={handleEventClick}
             eventDragStart={handleEventDragStart}
             eventDragStop={handleEventDragStop}
@@ -545,9 +593,36 @@ export default function OverallSchedulePage() {
         </Paper>
       )}
       <Menu id={CONTEXT_MENU_ID}>
-        <Item hidden={({props}) => isDummy(props) || !isAssignment(props)} onClick={({props}) => handleAssignmentCopy((props as any).event)}>工事名コピー</Item>
-        <Item hidden={({props}) => isDummy(props) || !isAssignment(props)} onClick={({props}) => handleAssignmentCut((props as any).event)}>工事名切り取り</Item>
-        <Item hidden={({props}) => isDummy(props) || !isAssignment(props)} onClick={({props}) => handleAssignmentDelete((props as any).event)}>工事名削除</Item>
+        <Item hidden={({props}) => isDummy(props) || !isAssignment(props)} onClick={({props}) => {
+          const clickedEvent = (props as any).event;
+          const isSelected = selectedEventIds.includes(clickedEvent.id);
+          if (isSelected && selectedEventIds.length > 0) {
+            const selectedEvents = events.filter(e => selectedEventIds.includes(e.id));
+            handleAssignmentCopy(selectedEvents);
+          } else {
+            handleAssignmentCopy([clickedEvent]);
+          }
+        }}>工事名コピー</Item>
+        <Item hidden={({props}) => isDummy(props) || !isAssignment(props)} onClick={({props}) => {
+          const clickedEvent = (props as any).event;
+          const isSelected = selectedEventIds.includes(clickedEvent.id);
+          if (isSelected && selectedEventIds.length > 0) {
+            const selectedEvents = events.filter(e => selectedEventIds.includes(e.id));
+            handleAssignmentCut(selectedEvents);
+          } else {
+            handleAssignmentCut([clickedEvent]);
+          }
+        }}>工事名切り取り</Item>
+        <Item hidden={({props}) => isDummy(props) || !isAssignment(props)} onClick={({props}) => {
+          const clickedEvent = (props as any).event;
+          const isSelected = selectedEventIds.includes(clickedEvent.id);
+          if (isSelected && selectedEventIds.length > 0) {
+            const selectedEvents = events.filter(e => selectedEventIds.includes(e.id));
+            handleAssignmentDelete(selectedEvents);
+          } else {
+            handleAssignmentDelete([clickedEvent]);
+          }
+        }}>工事名削除</Item>
         <Item hidden={({props}) => isDummy(props) || getAssignmentsOnDay(props).length <= 1} onClick={({props}) => {
             const assignments = getAssignmentsOnDay(props);
             const sorted = [...assignments].sort((a, b) => (a.extendedProps?.assignment_order ?? 0) - (b.extendedProps?.assignment_order ?? 0));

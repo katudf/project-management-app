@@ -188,3 +188,8 @@ td.fc-timeline-slot.company-holiday > div,
 .fc-timeline-slot.drop-invalid {
   background-color: rgba(255, 0, 0, 0.2) !important;
 }
+
+.selected-event {
+  border: 2px solid #0000ff !important; /* Blue border */
+  box-shadow: 0 0 5px rgba(0, 0, 255, 0.5);
+}
