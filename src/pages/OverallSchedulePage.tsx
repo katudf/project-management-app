@@ -39,7 +39,7 @@ export default function OverallSchedulePage() {
   const [selectedEventIds, setSelectedEventIds] = useState<string[]>([]);
   const [notification, setNotification] = useState<{ open: boolean; message: string; severity: 'success' | 'error' | 'info' | 'warning'; }>({ open: false, message: '', severity: 'info' });
   const [clipboard, setClipboard] = useState<ClipboardData | null>(null);
-  const [lastClickedEventId, setLastClickedEventId] = useState<string | null>(null);
+  const [selectionAnchor, setSelectionAnchor] = useState<{ resourceId: string; date: Date } | null>(null);
 
   // --- REFS ---
   const calendarRef = useRef<FullCalendar | null>(null);
@@ -117,63 +117,33 @@ export default function OverallSchedulePage() {
     setEditingProject(null);
   }, []);
 
-  const handleEventClick = (clickInfo: any) => {
-    const { event, jsEvent } = clickInfo;
-    const eventId = event.id as string;
+  const handleGridInteraction = (
+    resourceId: string,
+    date: Date,
+    isShift: boolean,
+    isCtrl: boolean,
+    clickedEventId: string | null
+  ) => {
+    if (isShift && selectionAnchor) {
+      const { resourceId: anchorResourceId, date: anchorDate } = selectionAnchor;
 
-    if (!event.id || !event.classNames.includes(EVENT_CLASS_NAME.ASSIGNMENT)) {
-      if (event.classNames.includes(EVENT_CLASS_NAME.PROJECT_MAIN)) {
-        const associatedResources = event.getResources();
-        if (associatedResources.length > 0) {
-          const resource = associatedResources[0];
-          const projectData = { id: resource.id.replace(RESOURCE_PREFIX.PROJECT, ''), name: resource.title, bar_color: event.backgroundColor };
-          setEditingProject(projectData);
-          setProjectEditFormData({ name: projectData.name, bar_color: projectData.bar_color || '#3788d8' });
-          setProjectEditDialogOpen(true);
-        } else {
-          console.error('Resource not found for event:', event);
-        }
-      }
-      setSelectedEventIds([]);
-      setLastClickedEventId(null);
-      return;
-    }
-
-    const isShiftSelect = jsEvent.shiftKey;
-    const isMultiSelect = jsEvent.ctrlKey || jsEvent.metaKey;
-
-    if (isShiftSelect && lastClickedEventId) {
-      const lastEvent = events.find(e => e.id === lastClickedEventId);
-      const currentEventResource = event.getResources()[0];
-
-      if (!lastEvent || !currentEventResource) {
-        setSelectedEventIds([eventId]);
-        setLastClickedEventId(eventId);
-        return;
-      }
-
-      // Determine resource range
       const resourceIds = resources.map(r => r.id);
-      const lastResourceIndex = resourceIds.indexOf(lastEvent.resourceId);
-      const currentResourceIndex = resourceIds.indexOf(currentEventResource.id);
+      const anchorResourceIndex = resourceIds.indexOf(anchorResourceId);
+      const currentResourceIndex = resourceIds.indexOf(resourceId);
       
-      if (lastResourceIndex === -1 || currentResourceIndex === -1) {
-        setSelectedEventIds([eventId]);
-        setLastClickedEventId(eventId);
+      if (anchorResourceIndex === -1 || currentResourceIndex === -1) {
+        setSelectionAnchor({ resourceId, date });
+        setSelectedEventIds(clickedEventId ? [clickedEventId] : []);
         return;
       }
 
-      const minResourceIndex = Math.min(lastResourceIndex, currentResourceIndex);
-      const maxResourceIndex = Math.max(lastResourceIndex, currentResourceIndex);
+      const minResourceIndex = Math.min(anchorResourceIndex, currentResourceIndex);
+      const maxResourceIndex = Math.max(anchorResourceIndex, currentResourceIndex);
       const selectedResourceIds = resourceIds.slice(minResourceIndex, maxResourceIndex + 1);
 
-      // Determine date range
-      const lastEventDate = new Date(lastEvent.start);
-      const currentEventDate = new Date(event.startStr);
-      const minDate = new Date(Math.min(lastEventDate.getTime(), currentEventDate.getTime()));
-      const maxDate = new Date(Math.max(lastEventDate.getTime(), currentEventDate.getTime()));
+      const minDate = new Date(Math.min(anchorDate.getTime(), date.getTime()));
+      const maxDate = new Date(Math.max(anchorDate.getTime(), date.getTime()));
       
-      // Filter events within the rectangle
       const selectedIds = events
         .filter(e => {
           if (!e.start || !e.resourceId || !e.className?.includes(EVENT_CLASS_NAME.ASSIGNMENT)) {
@@ -187,18 +157,41 @@ export default function OverallSchedulePage() {
         .map(e => e.id);
 
       setSelectedEventIds(selectedIds);
-
-    } else if (isMultiSelect) {
-      setSelectedEventIds(prevSelectedIds =>
-        prevSelectedIds.includes(eventId)
-          ? prevSelectedIds.filter(id => id !== eventId)
-          : [...prevSelectedIds, eventId]
+    } else if (isCtrl && clickedEventId) {
+      setSelectionAnchor({ resourceId, date });
+      setSelectedEventIds(prev =>
+        prev.includes(clickedEventId)
+          ? prev.filter(id => id !== clickedEventId)
+          : [...prev, clickedEventId]
       );
-      setLastClickedEventId(eventId); 
     } else {
-      setSelectedEventIds([eventId]);
-      setLastClickedEventId(eventId);
+      setSelectionAnchor({ resourceId, date });
+      setSelectedEventIds(clickedEventId ? [clickedEventId] : []);
     }
+  };
+
+  const handleDateClick = (arg: any) => {
+    if (!arg.resource) return;
+    handleGridInteraction(arg.resource.id, arg.date, arg.jsEvent.shiftKey, arg.jsEvent.ctrlKey || arg.jsEvent.metaKey, null);
+  };
+
+  const handleEventClick = (clickInfo: any) => {
+    const { event, jsEvent } = clickInfo;
+    const resource = event.getResources()[0];
+
+    if (!resource || !event.start) return;
+
+    if (event.classNames.includes(EVENT_CLASS_NAME.PROJECT_MAIN)) {
+      const projectData = { id: resource.id.replace(RESOURCE_PREFIX.PROJECT, ''), name: resource.title, bar_color: event.backgroundColor };
+      setEditingProject(projectData);
+      setProjectEditFormData({ name: projectData.name, bar_color: projectData.bar_color || '#3788d8' });
+      setProjectEditDialogOpen(true);
+      setSelectedEventIds([]);
+      setSelectionAnchor(null);
+      return;
+    }
+    
+    handleGridInteraction(resource.id, new Date(event.start), jsEvent.shiftKey, jsEvent.ctrlKey || jsEvent.metaKey, event.id);
   };
 
   const handleSaveOtherAssignment = useCallback(async () => {
@@ -474,6 +467,7 @@ export default function OverallSchedulePage() {
             onEventDrop={handleEventDrop}
             onEventResize={handleEventResize}
             onEventClick={handleEventClick}
+            onDateClick={handleDateClick}
             onEventDragStart={handleEventDragStart}
             onEventDragStop={handleEventDragStop}
             onEventAllow={handleEventAllow}

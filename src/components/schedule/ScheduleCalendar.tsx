@@ -4,7 +4,7 @@ import FullCalendar from '@fullcalendar/react';
 import resourceTimelinePlugin from '@fullcalendar/resource-timeline';
 import interactionPlugin from '@fullcalendar/interaction';
 import jaLocale from '@fullcalendar/core/locales/ja';
-import type { EventContentArg, EventMountArg, DatesSetArg, EventDragStartArg, EventDropArg, EventResizeDoneArg, DropInfo, EventAllowArg, EventClickArg } from '@fullcalendar/core';
+import type { EventContentArg, EventMountArg, DatesSetArg, EventDragStartArg, EventDropArg, EventResizeDoneArg, DropInfo, EventAllowArg, EventClickArg, DateClickArg } from '@fullcalendar/core';
 import type { CalendarEvent, Resource } from '@/types/schedule';
 import { EVENT_CLASS_NAME } from '@/constants/scheduleConstants';
 import { getDayClasses } from '@/utils/uiUtils';
@@ -19,6 +19,7 @@ interface ScheduleCalendarProps {
     onEventDrop: (arg: EventDropArg) => void;
     onEventResize: (arg: EventResizeDoneArg) => void;
     onEventClick: (arg: EventClickArg) => void;
+    onDateClick: (arg: DateClickArg) => void;
     onEventDragStart: (arg: EventDragStartArg) => void;
     onEventDragStop: () => void;
     onEventAllow: (dropInfo: DropInfo, draggedEvent: any) => boolean;
@@ -52,6 +53,7 @@ export const ScheduleCalendar = (props: ScheduleCalendarProps) => {
         onEventDrop,
         onEventResize,
         onEventClick,
+        onDateClick,
         onEventDragStart,
         onEventDragStop,
         onEventAllow,
@@ -101,6 +103,7 @@ export const ScheduleCalendar = (props: ScheduleCalendarProps) => {
             eventDidMount={onEventMount}
             eventClassNames={arg => selectedEventIds.includes(arg.event.id) ? ['selected-event'] : []}
             eventClick={onEventClick}
+            dateClick={onDateClick}
             eventDragStart={onEventDragStart}
             eventDragStop={onEventDragStop}
             eventAllow={onEventAllow}
