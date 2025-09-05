@@ -141,17 +141,27 @@ export default function OverallSchedulePage() {
       const maxResourceIndex = Math.max(anchorResourceIndex, currentResourceIndex);
       const selectedResourceIds = resourceIds.slice(minResourceIndex, maxResourceIndex + 1);
 
-      const minDate = new Date(Math.min(anchorDate.getTime(), date.getTime()));
-      const maxDate = new Date(Math.max(anchorDate.getTime(), date.getTime()));
+      const toDateString = (d: Date) => {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      };
+
+      const anchorDateStr = toDateString(anchorDate);
+      const currentDateStr = toDateString(date);
+
+      const minDateStr = anchorDateStr < currentDateStr ? anchorDateStr : currentDateStr;
+      const maxDateStr = anchorDateStr > currentDateStr ? anchorDateStr : currentDateStr;
       
       const selectedIds = events
         .filter(e => {
           if (!e.start || !e.resourceId || !e.className?.includes(EVENT_CLASS_NAME.ASSIGNMENT)) {
             return false;
           }
-          const eventDate = new Date(e.start);
           const isResourceInRange = selectedResourceIds.includes(e.resourceId);
-          const isDateInRange = eventDate >= minDate && eventDate <= maxDate;
+          // e.start is already a 'YYYY-MM-DD' string
+          const isDateInRange = e.start >= minDateStr && e.start <= maxDateStr;
           return isResourceInRange && isDateInRange;
         })
         .map(e => e.id);
