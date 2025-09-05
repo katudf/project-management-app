@@ -39,6 +39,7 @@ export default function OverallSchedulePage() {
   const [selectedEventIds, setSelectedEventIds] = useState<string[]>([]);
   const [notification, setNotification] = useState<{ open: boolean; message: string; severity: 'success' | 'error' | 'info' | 'warning'; }>({ open: false, message: '', severity: 'info' });
   const [clipboard, setClipboard] = useState<ClipboardData | null>(null);
+  const [lastClickedEventId, setLastClickedEventId] = useState<string | null>(null);
 
   // --- REFS ---
   const calendarRef = useRef<FullCalendar | null>(null);
@@ -120,35 +121,83 @@ export default function OverallSchedulePage() {
     const { event, jsEvent } = clickInfo;
     const eventId = event.id as string;
 
-    if (!event.id) {
-        setSelectedEventIds([]);
-        return;
-    }
-
-    if (event.classNames.includes(EVENT_CLASS_NAME.PROJECT_MAIN)) {
-      const associatedResources = event.getResources();
-      if (associatedResources.length > 0) {
-        const resource = associatedResources[0];
-        const projectData = { id: resource.id.replace(RESOURCE_PREFIX.PROJECT, ''), name: resource.title, bar_color: event.backgroundColor };
-        setEditingProject(projectData);
-        setProjectEditFormData({ name: projectData.name, bar_color: projectData.bar_color || '#3788d8' });
-        setProjectEditDialogOpen(true);
-      } else {
-        console.error('Resource not found for event:', event);
+    if (!event.id || !event.classNames.includes(EVENT_CLASS_NAME.ASSIGNMENT)) {
+      if (event.classNames.includes(EVENT_CLASS_NAME.PROJECT_MAIN)) {
+        const associatedResources = event.getResources();
+        if (associatedResources.length > 0) {
+          const resource = associatedResources[0];
+          const projectData = { id: resource.id.replace(RESOURCE_PREFIX.PROJECT, ''), name: resource.title, bar_color: event.backgroundColor };
+          setEditingProject(projectData);
+          setProjectEditFormData({ name: projectData.name, bar_color: projectData.bar_color || '#3788d8' });
+          setProjectEditDialogOpen(true);
+        } else {
+          console.error('Resource not found for event:', event);
+        }
       }
+      setSelectedEventIds([]);
+      setLastClickedEventId(null);
       return;
     }
 
+    const isShiftSelect = jsEvent.shiftKey;
     const isMultiSelect = jsEvent.ctrlKey || jsEvent.metaKey;
 
-    if (isMultiSelect) {
+    if (isShiftSelect && lastClickedEventId) {
+      const lastEvent = events.find(e => e.id === lastClickedEventId);
+      const currentEventResource = event.getResources()[0];
+
+      if (!lastEvent || !currentEventResource) {
+        setSelectedEventIds([eventId]);
+        setLastClickedEventId(eventId);
+        return;
+      }
+
+      // Determine resource range
+      const resourceIds = resources.map(r => r.id);
+      const lastResourceIndex = resourceIds.indexOf(lastEvent.resourceId);
+      const currentResourceIndex = resourceIds.indexOf(currentEventResource.id);
+      
+      if (lastResourceIndex === -1 || currentResourceIndex === -1) {
+        setSelectedEventIds([eventId]);
+        setLastClickedEventId(eventId);
+        return;
+      }
+
+      const minResourceIndex = Math.min(lastResourceIndex, currentResourceIndex);
+      const maxResourceIndex = Math.max(lastResourceIndex, currentResourceIndex);
+      const selectedResourceIds = resourceIds.slice(minResourceIndex, maxResourceIndex + 1);
+
+      // Determine date range
+      const lastEventDate = new Date(lastEvent.start);
+      const currentEventDate = new Date(event.startStr);
+      const minDate = new Date(Math.min(lastEventDate.getTime(), currentEventDate.getTime()));
+      const maxDate = new Date(Math.max(lastEventDate.getTime(), currentEventDate.getTime()));
+      
+      // Filter events within the rectangle
+      const selectedIds = events
+        .filter(e => {
+          if (!e.start || !e.resourceId || !e.className?.includes(EVENT_CLASS_NAME.ASSIGNMENT)) {
+            return false;
+          }
+          const eventDate = new Date(e.start);
+          const isResourceInRange = selectedResourceIds.includes(e.resourceId);
+          const isDateInRange = eventDate >= minDate && eventDate <= maxDate;
+          return isResourceInRange && isDateInRange;
+        })
+        .map(e => e.id);
+
+      setSelectedEventIds(selectedIds);
+
+    } else if (isMultiSelect) {
       setSelectedEventIds(prevSelectedIds =>
         prevSelectedIds.includes(eventId)
           ? prevSelectedIds.filter(id => id !== eventId)
           : [...prevSelectedIds, eventId]
       );
+      setLastClickedEventId(eventId); 
     } else {
       setSelectedEventIds([eventId]);
+      setLastClickedEventId(eventId);
     }
   };
 
