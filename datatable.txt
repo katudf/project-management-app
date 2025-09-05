@@ -44,6 +44,10 @@ unit: 単位 (text)
 unitPrice: 単価 (bigint)
 colorInfo: 色情報 (text)
 packagingOptions: 荷姿 (jsonb)
+size:単位当たり重量(int8)
+Standardusageamount:標準使用量(float4)
+
+
 
 ProjectTasks（プロジェクトタスク：案件のタスク）
 id: 番号 (bigint)
@@ -71,6 +75,8 @@ contractPdfUrl: 契約書PDFのURL (text)
 status: ステータス (text)
 customerId: 顧客ID (bigint)
 display_order: 表示順 (bigint)
+bar_color: バーの色 (text)
+
 
 ServiceMaster（サービスマスター）
 id: 番号 (bigint)
