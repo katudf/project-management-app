@@ -5,6 +5,7 @@ import { supabase } from '../supabaseClient';
 import type { CalendarEvent, Resource } from '@/types/schedule';
 import { RESOURCE_PREFIX, EVENT_CLASS_NAME } from '@/constants/scheduleConstants';
 import { getDuration, formatDate } from '@/utils/dateUtils';
+import { getContrastTextColor } from '@/utils/colorUtils';
 
 type NotificationHandler = (message: string, severity?: 'success' | 'error' | 'info' | 'warning') => void;
 
@@ -547,69 +548,144 @@ export const useEventHandlers = (
       return;
     }
 
+    const originalEvents = [...events];
     const pasteBaseDate = new Date(targetDate);
     const workerResources = resources.filter(r => r.id.startsWith(RESOURCE_PREFIX.WORKER));
     const targetResourceIndex = workerResources.findIndex(r => r.id === targetResourceId);
 
     if (targetResourceIndex === -1) {
-        showNotification('貼り付け先の作業員が見つかりません。', 'error');
-        return;
+      showNotification('貼り付け先の作業員が見つかりません。', 'error');
+      return;
     }
 
-    const assignmentsForRpc = new Map<string, { worker_id: number; target_date: string; assignments_to_add: any[] }>();
+    // 貼り付け先のセル情報と、そこに挿入されるアサインメントのリストを作成
+    const pasteActions = new Map<string, { workerId: number; date: string; assignments: any[] }>();
 
     clipboard.data.forEach((clipboardItem: ClipboardEventData) => {
       const newDate = new Date(pasteBaseDate.getTime());
       newDate.setDate(newDate.getDate() + (clipboardItem.offsetDays || 0));
-      const newDateStr = formatDate(newDate.toISOString());
+      const newDateStr = formatDate(newDate);
 
       const newResourceIndex = targetResourceIndex + (clipboardItem.offsetResourceIndex || 0);
-      if (newResourceIndex < 0 || newResourceIndex >= workerResources.length) {
-          return; 
-      }
+      if (newResourceIndex < 0 || newResourceIndex >= workerResources.length) return;
+      
       const newResource = workerResources[newResourceIndex];
       const newWorkerId = Number(newResource.id.replace(RESOURCE_PREFIX.WORKER, ''));
+      const key = `${newWorkerId}_${newDateStr}`;
 
-      const rpcTargetKey = `${newWorkerId}-${newDateStr}`;
-      if (!assignmentsForRpc.has(rpcTargetKey)) {
-        assignmentsForRpc.set(rpcTargetKey, {
-            worker_id: newWorkerId,
-            target_date: newDateStr,
-            assignments_to_add: [],
-        });
+      if (!pasteActions.has(key)) {
+        pasteActions.set(key, { workerId: newWorkerId, date: newDateStr, assignments: [] });
       }
       
-      assignmentsForRpc.get(rpcTargetKey)!.assignments_to_add.push({
-        project_id: clipboardItem.projectId,
+      pasteActions.get(key)!.assignments.push({
+        projectId: clipboardItem.projectId,
         title: clipboardItem.projectId ? null : clipboardItem.event.title,
         assignment_order: clipboardItem.event.extendedProps?.assignment_order ?? 0
       });
     });
 
-    assignmentsForRpc.forEach(group => {
-        group.assignments_to_add.sort((a, b) => a.assignment_order - b.assignment_order);
-    });
-
-    const pasteDataPayload = Array.from(assignmentsForRpc.values());
-
-    if (pasteDataPayload.length === 0) {
-        return;
-    }
+    if (pasteActions.size === 0) return;
 
     try {
-        const { error } = await supabase.rpc('overwrite_paste', { paste_data: pasteDataPayload });
+      // 1. 削除対象のIDを特定
+      const idsToDelete: number[] = [];
+      pasteActions.forEach((action) => {
+        const resourceId = `${RESOURCE_PREFIX.WORKER}${action.workerId}`;
+        originalEvents.forEach(event => {
+          if (event.resourceId === resourceId && event.start === action.date && event.id.startsWith('assign_')) {
+            idsToDelete.push(Number(event.id.replace('assign_', '')));
+          }
+        });
+      });
 
-        if (error) {
-            throw error;
+      // 2. 既存のアサインメントを削除
+      if (idsToDelete.length > 0) {
+        const { error: deleteError } = await supabase.from('Assignments').delete().in('id', idsToDelete);
+        if (deleteError) throw deleteError;
+      }
+
+      // 3. 新しいアサインメントのデータを作成
+      const assignmentsToInsert: any[] = [];
+      pasteActions.forEach(action => {
+        action.assignments
+          .sort((a, b) => a.assignment_order - b.assignment_order)
+          .forEach(assign => {
+            assignmentsToInsert.push({
+              workerId: action.workerId,
+              date: action.date,
+              projectId: assign.projectId,
+              title: assign.title,
+              assignment_order: assign.assignment_order,
+            });
+          });
+      });
+
+      if (assignmentsToInsert.length === 0) {
+        // 削除のみ行われた場合
+        setEvents(prev => prev.filter(e => !idsToDelete.map(id => `assign_${id}`).includes(e.id)));
+        showNotification('貼り付け（上書き）が完了しました。', 'success');
+        return;
+      }
+
+      // 4. 新しいアサインメントを挿入し、結果を取得
+      const { data: newAssignments, error: insertError } = await supabase
+        .from('Assignments')
+        .insert(assignmentsToInsert)
+        .select();
+
+      if (insertError) throw insertError;
+      if (!newAssignments) throw new Error("Insert operation did not return data.");
+
+      // 5. UIを更新
+      const newEventsPromises = newAssignments.map(async (a: any) => {
+        let title = a.title;
+        let backgroundColor: string | undefined = undefined;
+        let textColor: string | undefined = undefined;
+        
+        if (a.projectId) {
+          const { data: projectData } = await supabase
+            .from('Projects')
+            .select('name, bar_color')
+            .eq('id', a.projectId)
+            .single();
+          
+          if (projectData) {
+            title = projectData.name;
+            if (projectData.bar_color) {
+              backgroundColor = projectData.bar_color;
+              textColor = getContrastTextColor(backgroundColor);
+            }
+          }
         }
 
-        await fetchData();
-        showNotification('貼り付け（上書き）が完了しました。', 'success');
+        return {
+          id: `assign_${a.id}`,
+          resourceId: `${RESOURCE_PREFIX.WORKER}${a.workerId}`,
+          title: title,
+          start: a.date,
+          className: EVENT_CLASS_NAME.ASSIGNMENT,
+          editable: true,
+          extendedProps: { assignment_order: a.assignment_order },
+          backgroundColor: backgroundColor,
+          borderColor: backgroundColor,
+          textColor: textColor,
+        };
+      });
+
+      const newEvents = await Promise.all(newEventsPromises);
+
+      setEvents(prevEvents => {
+        const idsToDeleteSet = new Set(idsToDelete.map(id => `assign_${id}`));
+        const filteredEvents = prevEvents.filter(e => !idsToDeleteSet.has(e.id));
+        return [...filteredEvents, ...newEvents];
+      });
+
+      showNotification('貼り付けが完了しました。', 'success');
 
     } catch (error: any) {
-        console.error('Paste error:', error);
-        showNotification(`貼り付けに失敗しました: ${error.message}`, 'error');
-        await fetchData();
+      console.error('Paste error:', error);
+      showNotification(`貼り付けに失敗しました: ${error.message}`, 'error');
+      setEvents(originalEvents); // エラー時は状態を元に戻す
     }
   };
 
